@@ -1,6 +1,6 @@
 # weathercli
 
-A fast, terminal-based weather forecast application written in C. Features a split-pane interface with location management, tabbed forecasts with time-of-day breakdowns, AI-powered weather summaries tailored to outdoor activities, and a chat mode for free-form weather questions.
+A fast, terminal-based weather forecast application written in C. Features a split-pane interface with location management, tabbed forecasts with time-of-day breakdowns, and integrated AI capabilities. GPT-powered summaries adapt to your activity (motorcycling, skiing, sailing) and highlight what matters most for each. A free-form chat mode lets you ask natural language weather questions across multiple locations — ideal for planning trips and comparing conditions along a route.
 
 ```
 ────────────────────────────────────────────────────────────────
@@ -48,43 +48,6 @@ Three tabbed views, navigable with left/right arrow keys:
 
 Weather data is sourced from hourly (Today tab) and daily (4-Day/9-Day tabs) Open-Meteo API endpoints. All weather conditions are mapped from WMO weather codes to human-readable descriptions and terminal-compatible icons.
 
-### AI-Powered Summaries
-
-Each forecast tab includes an AI-generated natural language summary powered by OpenAI's GPT API (gpt-5.4). Summaries are:
-
-- **Per-tab**: Each tab gets its own summary covering the relevant day range.
-- **On-demand**: Fetched when you switch to a tab, then cached until the location or activity changes.
-- **Activity-aware**: Tailored to your current activity mode (see below).
-
-### Activity Modes
-
-Cycle through activity modes with `Tab` in the right pane. Each mode changes what GPT focuses on:
-
-| Mode | Focus |
-|------|-------|
-| **General** | Standard weather summary |
-| **Motorbike** | Rain risk, road grip, wind gusts, visibility, riding temperature |
-| **Ski** | Snowfall, freezing level, avalanche-relevant conditions, snow quality |
-| **Sailing** | Wind speed/direction, gusts, precipitation, visibility, storm risk |
-
-The current activity mode is shown in brackets on the right side of the tab bar.
-
-### AI Chat
-
-Press `c` in the right pane to ask free-form questions about the weather. The chat feature:
-
-- **Auto-detects locations**: Scans your question for saved location names (case-insensitive) and fetches weather data for each match automatically.
-- **Multi-location context**: Questions like "whats about a motorbike tour today between eichgraben and gross gerungs" will fetch weather for both locations and let GPT compare conditions along the route.
-- **Falls back to current location**: If no saved locations are found in the question, uses the currently selected location's forecast.
-- **Displayed in right pane only**: The chat response replaces the forecast view — the left pane with your locations stays untouched.
-- **Dismiss**: Press `Esc` or `q` to close the chat response and return to the forecast view.
-
-Example questions:
-- "whats about a motorbike tour today between eichgraben and gross gerungs"
-- "can I go skiing in lech this weekend"
-- "is it safe to sail from vienna to neusiedl am see tomorrow"
-- "compare the weather in schladming and mariazell for the next 4 days"
-
 ### User Interface
 
 - **Split-pane layout**: Left pane for locations, right pane for forecasts.
@@ -99,6 +62,51 @@ Example questions:
 - **Terminal title**: Sets the terminal window title to "WeatherCLI".
 - **Version display**: `weathercli v0.1` is shown on the right side of the footer.
 - **Responsive**: Adapts to terminal resize events.
+
+## AI Features
+
+weathercli integrates OpenAI's GPT API (gpt-5.4) for two capabilities: activity-aware forecast summaries and free-form weather chat. Both are optional — the app works fully without an API key, but skips AI output.
+
+### Summaries
+
+Each forecast tab includes an AI-generated natural language summary. Summaries are:
+
+- **Per-tab**: Each tab (Today / 4-Day / 9-Day) gets its own summary covering the relevant day range.
+- **On-demand**: Fetched when you switch to a tab, then cached until the location or activity changes.
+- **Activity-aware**: Tailored to your current activity mode (see below).
+
+### Activity Modes
+
+Cycle through activity modes with `Tab` in the right pane. Each mode changes what GPT focuses on:
+
+| Mode | Focus |
+|------|-------|
+| **General** | Standard weather summary |
+| **Motorbike** | Rain risk, road grip, wind gusts, visibility, riding temperature |
+| **Ski** | Snowfall, freezing level, avalanche-relevant conditions, snow quality |
+| **Sailing** | Wind speed/direction, gusts, precipitation, visibility, storm risk |
+
+The current activity mode is shown in brackets on the right side of the tab bar. New modes can be added by editing `src/config.h` and `src/activity.h` (see [Adding New Activity Modes](#adding-new-activity-modes)).
+
+### Chat
+
+Press `c` in the right pane to ask free-form questions about the weather:
+
+- **Auto-detects locations**: Scans your question for saved location names (case-insensitive) and fetches weather data for each match automatically.
+- **Multi-location context**: Questions like "whats about a motorbike tour today between eichgraben and gross gerungs" will fetch weather for both locations and let GPT compare conditions along the route.
+- **Falls back to current location**: If no saved locations are found in the question, uses the currently selected location's forecast.
+- **Displayed in right pane only**: The chat response replaces the forecast view — the left pane stays untouched.
+- **Dismiss**: Press `Esc` or `q` to close the chat response and return to the forecast view.
+
+Example questions:
+- "whats about a motorbike tour today between eichgraben and gross gerungs"
+- "can I go skiing in lech this weekend"
+- "is it safe to sail from vienna to neusiedl am see tomorrow"
+- "compare the weather in schladming and mariazell for the next 4 days"
+
+### Graceful Degradation
+
+Without an OpenAI API key, weathercli operates as a fully functional weather app — all forecast data, location management, and navigation work as normal. AI summaries and chat are simply skipped. No error messages or broken UI.
 
 ## Installation
 
