@@ -50,6 +50,9 @@
 /* getch() timeout in milliseconds for the main event loop */
 #define GETCH_TIMEOUT_MS 100
 
+/* How long temporary status messages (e.g. "Refreshed") stay visible */
+#define STATUS_DISPLAY_SECONDS 3
+
 /* Weather source labels shown in the UI */
 #define SOURCE_LABEL_ECMWF "ECMWF"
 #define SOURCE_LABEL_DWD "DWD ICON"

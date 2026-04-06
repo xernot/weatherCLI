@@ -70,6 +70,7 @@ typedef struct {
 
   /* Status bar message */
   char status_msg[256];
+  time_t status_expire; /* When nonzero, clear status_msg after this time */
 
   /* Running flag */
   int running;

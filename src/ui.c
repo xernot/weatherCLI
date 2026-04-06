@@ -632,7 +632,15 @@ static void draw_right_pane(const AppState *state) {
   }
 }
 
+static void expire_status(AppState *state) {
+  if (state->status_expire > 0 && time(NULL) >= state->status_expire) {
+    state->status_msg[0] = '\0';
+    state->status_expire = 0;
+  }
+}
+
 void ui_render(const AppState *state) {
+  expire_status((AppState *)state);
   erase();
   draw_header_lines(state);
   draw_border(state->left_width, state->term_rows);
@@ -788,6 +796,7 @@ static void fetch_forecast_for_selected(AppState *state) {
     char time_buf[32];
     format_refresh_time(state->last_refresh, time_buf, sizeof(time_buf));
     ui_set_status(state, "Refreshed %s", time_buf);
+    state->status_expire = time(NULL) + STATUS_DISPLAY_SECONDS;
   } else {
     ui_set_status(state, "");
   }

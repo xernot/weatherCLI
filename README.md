@@ -56,7 +56,7 @@ All views show **dual weather sources side by side** — ECMWF and DWD ICON mode
 - **Refresh timestamp**: The header shows the time of the last data fetch (e.g. `[14:32:07]`).
 - **Auto-focus**: Selecting a location and loading its forecast automatically switches focus to the right pane.
 - **Progress bar**: Loading progress is shown in the footer with a visual bar and percentage during weather and AI data fetching.
-- **Refresh**: Press `r` to re-fetch weather data and AI summaries for the current location.
+- **Refresh**: Press `r` to re-fetch weather data and AI summaries for the current location. A "Refreshed" confirmation appears in the footer for 3 seconds, then reverts to the normal hint bar.
 - **Info overlay**: Press `?` to see data source information and keyboard reference.
 - **Framed layout**: Header and footer are framed with horizontal border lines for a clean, structured look.
 - **Quit confirmation**: Pressing `q` shows "Quit? (y/n)" in the footer bar.
