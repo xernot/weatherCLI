@@ -270,4 +270,4 @@ Up to 10 activity modes are supported. Changes take effect on next launch.
 
 ## License
 
-MIT
+This project is licensed under the [GNU General Public License v3.0](LICENSE).
