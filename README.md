@@ -55,8 +55,9 @@ All views show **dual weather sources side by side** — ECMWF and DWD ICON mode
 - **Tabbed forecasts**: Today / Tomorrow / 4-Day / 9-Day with left/right arrow navigation. Active tab label in green.
 - **Refresh timestamp**: The header shows the time of the last data fetch (e.g. `[14:32:07]`).
 - **Auto-focus**: Selecting a location and loading its forecast automatically switches focus to the right pane.
-- **Progress bar**: Loading progress is shown in the footer with a visual bar and percentage during weather and AI data fetching.
-- **Refresh**: Press `r` to re-fetch weather data and AI summaries for the current location. A "Refreshed" confirmation appears in the footer for 3 seconds, then reverts to the normal hint bar.
+- **Progress bar**: Loading progress is shown in the footer with a visual bar and percentage during weather data fetching.
+- **Non-blocking AI**: Weather data is displayed immediately; AI summaries load in the background via a separate thread. The footer shows "Loading AI summary..." while the request is in progress.
+- **Refresh**: Press `r` to re-fetch weather data for the current location. A "Refreshed" confirmation appears in the footer for 3 seconds, then reverts to the normal hint bar.
 - **Info overlay**: Press `?` to see data source information and keyboard reference.
 - **Framed layout**: Header and footer are framed with horizontal border lines for a clean, structured look.
 - **Quit confirmation**: Pressing `q` shows "Quit? (y/n)" in the footer bar.
@@ -73,6 +74,7 @@ weathercli integrates OpenAI's GPT API (gpt-5.4) for two capabilities: activity-
 Each forecast tab includes an AI-generated natural language summary. Summaries are:
 
 - **Per-tab**: Each tab (Today / Tomorrow / 4-Day / 9-Day) gets its own summary covering the relevant day range.
+- **Non-blocking**: Summaries load in a background thread so the forecast is visible immediately. A status message appears in the footer while loading.
 - **On-demand**: Fetched when you switch to a tab, then cached until the location or activity changes.
 - **Activity-aware**: Tailored to your current activity mode (see below).
 

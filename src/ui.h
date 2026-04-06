@@ -25,6 +25,7 @@
 #include "location.h"
 #include "weather.h"
 
+#include <pthread.h>
 #include <time.h>
 
 /* Which pane is currently focused */
@@ -91,6 +92,16 @@ typedef struct {
   char status_msg[256];
   time_t status_expire; /* When nonzero, clear status_msg after this time */
 
+  /* Async GPT summary */
+  pthread_t gpt_thread;         /* Background thread handle */
+  int gpt_thread_active;        /* Whether a GPT thread is running */
+  int gpt_thread_tab;           /* Which tab the thread is fetching for */
+  char gpt_thread_result[2048]; /* Buffer for thread result */
+  int gpt_thread_done;          /* Set by thread when complete */
+  Forecast gpt_thread_forecast; /* Snapshot of forecast for thread */
+  char gpt_thread_location[MAX_LOCATION_NAME]; /* Location name for thread */
+  char gpt_thread_prompt[512];                 /* Activity prompt for thread */
+
   /* Running flag */
   int running;
 } AppState;
@@ -107,6 +118,9 @@ void ui_render(const AppState *state);
 /* Handle a single keypress, updating state. Returns 0 to continue, 1 to quit.
  */
 int ui_handle_input(AppState *state, int ch);
+
+/* Check if async GPT thread has completed and collect result */
+void ui_check_async_gpt(AppState *state);
 
 /* Set a status bar message */
 void ui_set_status(AppState *state, const char *fmt, ...);

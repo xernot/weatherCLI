@@ -33,9 +33,15 @@ int main(void) {
   ui_init(&state);
 
   while (state.running) {
+    ui_check_async_gpt(&state);
     ui_render(&state);
     int ch = getch();
     ui_handle_input(&state, ch);
+  }
+
+  /* Cancel any in-flight async GPT thread before cleanup */
+  if (state.gpt_thread_active) {
+    pthread_detach(state.gpt_thread);
   }
 
   ui_cleanup();

@@ -1,7 +1,7 @@
 # weathercli - Terminal weather forecast application
 CC      = gcc
 CFLAGS  = -Wall -Wextra -std=c11 -O2 -I vendor
-LDFLAGS = -lcurl -lncursesw
+LDFLAGS = -lcurl -lncursesw -lpthread
 
 SRC_DIR   = src
 VENDOR_DIR = vendor

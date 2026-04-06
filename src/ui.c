@@ -27,6 +27,7 @@
 #include <ncurses.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <time.h>
 
@@ -729,7 +730,34 @@ static void set_progress(AppState *state, int percent, const char *msg) {
   ui_render(state);
 }
 
-static void fetch_gpt_for_current_tab(AppState *state) {
+/* Thread argument for async GPT fetch */
+typedef struct {
+  Forecast forecast;
+  char location_name[MAX_LOCATION_NAME];
+  char activity_prompt[512];
+  int day_start;
+  int day_end;
+  char result[2048];
+  int *done_flag;
+} GptThreadArg;
+
+static void *gpt_thread_worker(void *arg) {
+  GptThreadArg *a = (GptThreadArg *)arg;
+  gpt_summarize(&a->forecast, a->location_name, a->activity_prompt,
+                a->day_start, a->day_end, a->result, sizeof(a->result));
+  __atomic_store_n(a->done_flag, 1, __ATOMIC_RELEASE);
+  return arg;
+}
+
+static void cancel_async_gpt(AppState *state) {
+  if (!state->gpt_thread_active)
+    return;
+  pthread_detach(state->gpt_thread);
+  state->gpt_thread_active = 0;
+  state->gpt_thread_done = 0;
+}
+
+static void launch_async_gpt(AppState *state) {
   int tab = (int)state->right_tab;
   if (state->gpt_loaded[tab] || !gpt_is_available() || !state->has_forecast)
     return;
@@ -738,6 +766,8 @@ static void fetch_gpt_for_current_tab(AppState *state) {
   if (state->cursor_index < 0 || state->cursor_index >= list->count)
     return;
 
+  cancel_async_gpt(state);
+
   const Location *loc = &list->items[state->cursor_index];
   const char *activity_prompt =
       state->activities.items[state->activity_index].prompt;
@@ -745,20 +775,62 @@ static void fetch_gpt_for_current_tab(AppState *state) {
   int day_end = 0;
   get_tab_day_range(state->right_tab, &day_start, &day_end);
 
-  /* Only show standalone progress when not already in a fetch cycle */
-  if (state->progress == 0) {
-    set_progress(state, 60, "Getting AI summary...");
-  }
+  state->gpt_thread_forecast = state->forecast;
+  snprintf(state->gpt_thread_location, sizeof(state->gpt_thread_location), "%s",
+           loc->name);
+  snprintf(state->gpt_thread_prompt, sizeof(state->gpt_thread_prompt), "%s",
+           activity_prompt);
+  state->gpt_thread_tab = tab;
+  state->gpt_thread_done = 0;
+  state->gpt_thread_result[0] = '\0';
 
-  gpt_summarize(&state->forecast, loc->name, activity_prompt, day_start,
-                day_end, state->gpt_summaries[tab],
-                sizeof(state->gpt_summaries[tab]));
-  state->gpt_loaded[tab] = 1;
+  GptThreadArg *arg = malloc(sizeof(*arg));
+  if (!arg)
+    return;
+  arg->forecast = state->gpt_thread_forecast;
+  snprintf(arg->location_name, sizeof(arg->location_name), "%s",
+           state->gpt_thread_location);
+  snprintf(arg->activity_prompt, sizeof(arg->activity_prompt), "%s",
+           state->gpt_thread_prompt);
+  arg->day_start = day_start;
+  arg->day_end = day_end;
+  arg->result[0] = '\0';
+  arg->done_flag = &state->gpt_thread_done;
 
-  if (state->progress > 0 && !state->loading) {
-    state->progress = 0;
+  state->gpt_thread_active = 1;
+  ui_set_status(state, "Loading AI summary...");
+
+  if (pthread_create(&state->gpt_thread, NULL, gpt_thread_worker, arg) != 0) {
+    free(arg);
+    state->gpt_thread_active = 0;
     ui_set_status(state, "");
+    return;
   }
+}
+
+void ui_check_async_gpt(AppState *state) {
+  if (!state->gpt_thread_active)
+    return;
+  if (!__atomic_load_n(&state->gpt_thread_done, __ATOMIC_ACQUIRE))
+    return;
+
+  /* Thread finished — join and collect result */
+  GptThreadArg *arg = NULL;
+  pthread_join(state->gpt_thread, (void **)&arg);
+  state->gpt_thread_active = 0;
+  state->gpt_thread_done = 0;
+
+  if (arg) {
+    int tab = state->gpt_thread_tab;
+    if (tab >= 0 && tab < RIGHT_TAB_COUNT && !state->gpt_loaded[tab]) {
+      snprintf(state->gpt_summaries[tab], sizeof(state->gpt_summaries[tab]),
+               "%s", arg->result);
+      state->gpt_loaded[tab] = 1;
+    }
+    free(arg);
+  }
+
+  ui_set_status(state, "");
 }
 
 static void fetch_forecast_for_selected(AppState *state) {
@@ -796,10 +868,6 @@ static void fetch_forecast_for_selected(AppState *state) {
                              &state->today_detail_dwd,
                              &state->tomorrow_detail_dwd);
 
-    set_progress(state, 65, "Getting AI summary...");
-
-    fetch_gpt_for_current_tab(state);
-
     set_progress(state, 100, "Done");
   } else {
     state->has_forecast = 0;
@@ -816,6 +884,9 @@ static void fetch_forecast_for_selected(AppState *state) {
     format_refresh_time(state->last_refresh, time_buf, sizeof(time_buf));
     ui_set_status(state, "Refreshed %s", time_buf);
     state->status_expire = time(NULL) + STATUS_DISPLAY_SECONDS;
+
+    /* Launch GPT summary in background — forecast displays immediately */
+    launch_async_gpt(state);
   } else {
     ui_set_status(state, "");
   }
@@ -1004,7 +1075,7 @@ static void show_activity_picker(AppState *state) {
   invalidate_gpt_summaries(state);
   ui_set_status(state, "Activity: %s",
                 state->activities.items[state->activity_index].label);
-  fetch_gpt_for_current_tab(state);
+  launch_async_gpt(state);
 }
 
 static void open_chat(AppState *state) {
@@ -1160,7 +1231,7 @@ static void switch_right_tab(AppState *state, int direction) {
     tab = 0;
   state->right_tab = (RightTab)tab;
   state->right_scroll = 0;
-  fetch_gpt_for_current_tab(state);
+  launch_async_gpt(state);
 }
 
 static int confirm_quit(AppState *state) {
