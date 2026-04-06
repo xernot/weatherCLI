@@ -1,27 +1,26 @@
 # weathercli
 
-A fast, terminal-based weather forecast application written in C. Features a split-pane interface with location management, tabbed forecasts with time-of-day breakdowns, and integrated AI capabilities. GPT-powered summaries adapt to your activity (motorcycling, skiing, sailing) and highlight what matters most for each. A free-form chat mode lets you ask natural language weather questions across multiple locations — ideal for planning trips and comparing conditions along a route.
+A fast, AI-driven, terminal-based weather forecast application written in C. Features a split-pane interface with location management, tabbed forecasts (Today, Tomorrow, 4-Day, 9-Day) with dual weather sources (ECMWF and DWD ICON) shown side by side, and integrated AI capabilities. GPT-powered summaries adapt to your activity (motorcycling, skiing, sailing) and highlight what matters most for each. A free-form chat mode lets you ask natural language weather questions across multiple locations — ideal for planning trips and comparing conditions along a route.
 
 ```
 ────────────────────────────────────────────────────────────────
  > Locations              │   Vienna, AT
-   /                      │   [ Today ]  4-Day   9-Day  [General]
+   /                      │   [ Today ]  Tomorrow   4-Day   9-Day  [General]
 ──────────────────────────│─────────────────────────────────────
    Eichgraben, AT         │  2026-04-06
-   Groß Gerungs, AT       │  Morning      ⛅ Partly cloudy
- > Lech, AT               │      15/8C  Wind 12 km/h  0.0 mm  65%
-   Mariazell, AT          │  ────────────────────────────────────
-   Schladming, AT         │  Afternoon    ☀ Clear sky
-   St. Anton, AT          │      19/14C  Wind 8 km/h  0.0 mm  52%
-   Vienna, AT             │  ────────────────────────────────────
-                          │  Evening      ⛅ Partly cloudy
-                          │      16/12C  Wind 5 km/h  0.0 mm  70%
+   Groß Gerungs, AT       │  Morning          ECMWF       DWD ICON
+ > Lech, AT               │      ⛅ Partly cloudy   ⛅ Partly cloudy
+   Mariazell, AT          │      15/8C 12km/h      14/8C 11km/h
+   Schladming, AT         │  ────────────────────────────────────
+   St. Anton, AT          │  Afternoon
+   Vienna, AT             │      ☀ Clear sky       ☀ Clear sky
+                          │      19/14C 8km/h      18/13C 9km/h
                           │  ────────────────────────────────────
                           │  AI Summary (General):
                           │  A pleasant spring day with clear
                           │  skies and mild temperatures...
 ────────────────────────────────────────────────────────────────
- S-Tab:pane  Tab:activity  c:chat  r:refresh        weathercli v0.1
+ S-Tab:pane  a:activity  c:chat  r:refresh           weathercli v0.1
 ────────────────────────────────────────────────────────────────
 ```
 
@@ -38,21 +37,23 @@ A fast, terminal-based weather forecast application written in C. Features a spl
 
 ### Weather Forecasts
 
-Three tabbed views, navigable with left/right arrow keys:
+Four tabbed views, navigable with left/right arrow keys:
 
 | Tab | Content |
 |-----|---------|
 | **Today** | Time-of-day breakdown: Morning (06-12), Afternoon (12-18), Evening (18-24), Night (00-06). Each section shows condition, temp range, wind, precipitation, humidity. |
+| **Tomorrow** | Same time-of-day breakdown as Today, for the next day. |
 | **4-Day** | Compact overview of 4 days with condition, temperatures, wind, precipitation, humidity |
 | **9-Day** | Extended compact forecast for 9 days |
 
-Weather data is sourced from hourly (Today tab) and daily (4-Day/9-Day tabs) Open-Meteo API endpoints. All weather conditions are mapped from WMO weather codes to human-readable descriptions and terminal-compatible icons.
+All views show **dual weather sources side by side** — ECMWF and DWD ICON models via Open-Meteo — so you can compare forecasts at a glance. Weather conditions are mapped from WMO codes to human-readable descriptions and terminal-compatible icons. A last-refresh timestamp is shown in the header after loading.
 
 ### User Interface
 
 - **Split-pane layout**: Left pane for locations, right pane for forecasts.
 - **Active pane indicator**: The active pane title is shown in green bold with a `>` prefix; the inactive pane title is dimmed. The separator line under the active pane header is green.
-- **Tabbed forecasts**: Today / 4-Day / 9-Day with left/right arrow navigation. Active tab label in green.
+- **Tabbed forecasts**: Today / Tomorrow / 4-Day / 9-Day with left/right arrow navigation. Active tab label in green.
+- **Refresh timestamp**: The header shows the time of the last data fetch (e.g. `[14:32:07]`).
 - **Auto-focus**: Selecting a location and loading its forecast automatically switches focus to the right pane.
 - **Progress bar**: Loading progress is shown in the footer with a visual bar and percentage during weather and AI data fetching.
 - **Refresh**: Press `r` to re-fetch weather data and AI summaries for the current location.
@@ -71,13 +72,13 @@ weathercli integrates OpenAI's GPT API (gpt-5.4) for two capabilities: activity-
 
 Each forecast tab includes an AI-generated natural language summary. Summaries are:
 
-- **Per-tab**: Each tab (Today / 4-Day / 9-Day) gets its own summary covering the relevant day range.
+- **Per-tab**: Each tab (Today / Tomorrow / 4-Day / 9-Day) gets its own summary covering the relevant day range.
 - **On-demand**: Fetched when you switch to a tab, then cached until the location or activity changes.
 - **Activity-aware**: Tailored to your current activity mode (see below).
 
 ### Activity Modes
 
-Cycle through activity modes with `Tab` in the right pane. Each mode changes what GPT focuses on:
+Press `a` in the right pane to open the activity picker, then use Up/Down arrows to select and Enter to confirm. Each mode changes what GPT focuses on:
 
 | Mode | Focus |
 |------|-------|
@@ -86,7 +87,7 @@ Cycle through activity modes with `Tab` in the right pane. Each mode changes wha
 | **Ski** | Snowfall, freezing level, avalanche-relevant conditions, snow quality |
 | **Sailing** | Wind speed/direction, gusts, precipitation, visibility, storm risk |
 
-The current activity mode is shown in brackets on the right side of the tab bar. New modes can be added by editing `src/config.h` and `src/activity.h` (see [Adding New Activity Modes](#adding-new-activity-modes)).
+The current activity mode is shown in brackets on the right side of the tab bar. These are the built-in defaults — you can customize or add modes via a config file (see [Adding New Activity Modes](#adding-new-activity-modes)).
 
 ### Chat
 
@@ -203,9 +204,9 @@ All hardcoded values (API URLs, UI dimensions, colors, key bindings, weather cod
 
 | Key | Action |
 |-----|--------|
-| `Left/Right` | Switch between Today / 4-Day / 9-Day tabs |
+| `Left/Right` | Switch between Today / Tomorrow / 4-Day / 9-Day tabs |
 | `Up/Down` | Scroll forecast content |
-| `Tab` | Cycle activity mode (General / Motorbike / Ski / Sailing) |
+| `a` | Open activity picker (Up/Down to select, Enter to confirm, Esc to cancel) |
 | `c` | Open chat — type a question, press Enter to send |
 | `r` | Refresh forecast data |
 | `Esc` | Dismiss chat response, return to forecast |
@@ -230,12 +231,12 @@ weathercli/
     ui.c / ui.h         ncurses rendering, input handling, AppState
     location.c / .h     Geocoding search (Open-Meteo + Nominatim fallback),
                         location CRUD, storage, alphabetical sorting
-    weather.c / .h      Open-Meteo forecast API (daily + hourly),
+    weather.c / .h      Open-Meteo ECMWF + DWD ICON forecast APIs (daily + hourly),
                         WMO code mapping, time-of-day section aggregation
     gpt.c / .h          OpenAI API, activity-aware summaries, multi-location chat
     http.c / .h         libcurl wrapper (GET, POST with JSON)
     secrets.c / .h      Secrets file loader (~/.weathercli/secrets)
-    activity.h          Activity mode definitions (references config.h)
+    activity.h          Activity mode loading (~/.weathercli/activities.conf or built-in defaults)
     config.h            All constants and configuration values
   vendor/
     cJSON.c / cJSON.h   Vendored JSON parser (MIT license)
@@ -243,24 +244,19 @@ weathercli/
 
 ## Adding New Activity Modes
 
-Activity modes are designed to be easily extended. To add a new mode:
+Activity modes are loaded from `~/.weathercli/activities.conf` at startup. If the file is missing, the built-in defaults (General, Motorbike, Ski, Sailing) are used.
 
-1. **Define constants** in `src/config.h`:
-   ```c
-   #define ACTIVITY_LABEL_HIKE "Hiking"
-   #define ACTIVITY_PROMPT_HIKE \
-     "Summarize for a day hike. Focus on rain risk, " \
-     "trail conditions, temperature comfort, and UV exposure."
-   ```
+The file format is one activity per line, with the label and GPT prompt separated by `|`:
 
-2. **Increment** `ACTIVITY_COUNT` in `src/config.h`.
+```
+General|Give a general weather summary.
+Motorbike|Summarize for a motorbike tour. Focus on rain risk, road grip conditions, wind gusts, visibility, and comfortable riding temperature ranges.
+Ski|Summarize for ski touring or skiing. Focus on snowfall, freezing level, avalanche-relevant wind/temperature swings, visibility, and snow quality expectations.
+Sailing|Summarize for sailing. Focus on wind speed and direction, gusts, wave-relevant precipitation, visibility, and storm risk.
+Hiking|Summarize for a day hike. Focus on rain risk, trail conditions, temperature comfort, and UV exposure.
+```
 
-3. **Add the entry** to the `ACTIVITIES` array in `src/activity.h`:
-   ```c
-   {ACTIVITY_LABEL_HIKE, ACTIVITY_PROMPT_HIKE},
-   ```
-
-Rebuild with `make` and the new mode appears in the Tab cycle.
+Up to 10 activity modes are supported. Changes take effect on next launch.
 
 ## APIs
 
@@ -268,7 +264,8 @@ Rebuild with `make` and the new mode appears in the Tab cycle.
 |-----|---------|------|
 | [Open-Meteo Geocoding](https://open-meteo.com/en/docs/geocoding-api) | Primary location search | None (free) |
 | [Nominatim / OpenStreetMap](https://nominatim.org/release-docs/develop/api/Search/) | Fallback location search (fuzzy matching) | None (free) |
-| [Open-Meteo Forecast](https://open-meteo.com/en/docs) | Daily + hourly weather forecasts with WMO codes | None (free) |
+| [Open-Meteo ECMWF](https://open-meteo.com/en/docs/ecmwf-api) | Daily + hourly weather forecasts (ECMWF model) | None (free) |
+| [Open-Meteo DWD ICON](https://open-meteo.com/en/docs/dwd-api) | Daily + hourly weather forecasts (DWD ICON model) | None (free) |
 | [OpenAI Chat Completions](https://platform.openai.com/docs/api-reference/chat) | AI weather summaries + chat (gpt-5.4) | API key required |
 
 ## License
