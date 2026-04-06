@@ -1,0 +1,87 @@
+#include "http.h"
+#include "config.h"
+
+#include <curl/curl.h>
+#include <stdlib.h>
+#include <string.h>
+
+void http_buffer_init(HttpBuffer *buf) {
+  buf->data = malloc(4096);
+  buf->data[0] = '\0';
+  buf->size = 0;
+  buf->capacity = 4096;
+}
+
+void http_buffer_free(HttpBuffer *buf) {
+  free(buf->data);
+  buf->data = NULL;
+  buf->size = 0;
+  buf->capacity = 0;
+}
+
+static size_t write_callback(void *contents, size_t size, size_t nmemb,
+                             void *userdata) {
+  size_t total = size * nmemb;
+  HttpBuffer *buf = (HttpBuffer *)userdata;
+
+  if (buf->size + total >= HTTP_MAX_RESPONSE_SIZE) {
+    return 0;
+  }
+
+  while (buf->size + total + 1 > buf->capacity) {
+    buf->capacity *= 2;
+    buf->data = realloc(buf->data, buf->capacity);
+  }
+
+  memcpy(buf->data + buf->size, contents, total);
+  buf->size += total;
+  buf->data[buf->size] = '\0';
+
+  return total;
+}
+
+static int http_perform(CURL *curl, HttpBuffer *response) {
+  curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
+  curl_easy_setopt(curl, CURLOPT_WRITEDATA, response);
+  curl_easy_setopt(curl, CURLOPT_TIMEOUT, (long)HTTP_TIMEOUT_SECONDS);
+  curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+  curl_easy_setopt(curl, CURLOPT_USERAGENT, "weathercli/1.0");
+
+  CURLcode res = curl_easy_perform(curl);
+  curl_easy_cleanup(curl);
+
+  return (res == CURLE_OK) ? 0 : -1;
+}
+
+int http_get(const char *url, HttpBuffer *response) {
+  CURL *curl = curl_easy_init();
+  if (!curl) {
+    return -1;
+  }
+
+  curl_easy_setopt(curl, CURLOPT_URL, url);
+  return http_perform(curl, response);
+}
+
+int http_post_json(const char *url, const char *json_body,
+                   const char *auth_header, HttpBuffer *response) {
+  CURL *curl = curl_easy_init();
+  if (!curl) {
+    return -1;
+  }
+
+  struct curl_slist *headers = NULL;
+  headers = curl_slist_append(headers, "Content-Type: application/json");
+  if (auth_header) {
+    headers = curl_slist_append(headers, auth_header);
+  }
+
+  curl_easy_setopt(curl, CURLOPT_URL, url);
+  curl_easy_setopt(curl, CURLOPT_POSTFIELDS, json_body);
+  curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+
+  int result = http_perform(curl, response);
+  curl_slist_free_all(headers);
+
+  return result;
+}

@@ -1,0 +1,8 @@
+# Activity modes for weather summaries
+# Format: Label|GPT prompt text
+# One activity per line, # for comments
+
+General|Give a general weather summary.
+Motorbike|Summarize for a motorbike tour. Focus on rain risk, road grip conditions, wind gusts, visibility, and comfortable riding temperature ranges.
+Ski|Summarize for ski touring or skiing. Focus on snowfall, freezing level, avalanche-relevant wind/temperature swings, visibility, and snow quality expectations.
+Sailing|Summarize for sailing. Focus on wind speed and direction, gusts, wave-relevant precipitation, visibility, and storm risk.
