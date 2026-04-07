@@ -79,6 +79,10 @@
 /* strftime format for the last-refresh timestamp shown in the header */
 #define REFRESH_TIME_FORMAT "[%H:%M:%S]"
 
+/* Marker shown next to a location that has cached weather data on disk */
+#define CACHED_LOCATION_MARK "*"
+#define UNCACHED_LOCATION_MARK "-"
+
 /* --- Forecast Modes --- */
 
 /* Number of days for each forecast mode */
@@ -164,7 +168,11 @@
 #define CACHE_DIR ".weathercli/cache"
 
 /* How often the background thread refreshes cached forecasts (seconds) */
-#define CACHE_REFRESH_INTERVAL_SECONDS (4 * 3600)
+#define CACHE_REFRESH_INTERVAL_SECONDS (6 * 3600)
+
+/* Maximum age of a cached response before it is considered stale and a
+ * fresh network fetch is required. */
+#define CACHE_MAX_AGE_SECONDS (6 * 3600)
 
 /* Maximum length of a location name */
 #define MAX_LOCATION_NAME 128

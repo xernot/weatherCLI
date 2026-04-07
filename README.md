@@ -34,6 +34,7 @@ A fast, AI-driven, terminal-based weather forecast application written in C. Fea
 - **Filter**: When viewing saved locations, typing filters the list in real-time (case-insensitive substring match).
 - **Alphabetical sorting**: Saved locations are always sorted alphabetically.
 - **Persistent storage**: Locations are stored in `~/.weathercli/locations.json`.
+- **Cache marker**: Each location is prefixed with `*` if it has cached weather data on disk, or `-` if it does not.
 
 ### Weather Forecasts
 
@@ -46,7 +47,17 @@ Four tabbed views, navigable with left/right arrow keys:
 | **4-Day** | Compact overview of 4 days with condition, temperatures, wind, precipitation, humidity |
 | **9-Day** | Extended compact forecast for 9 days |
 
-All views show **dual weather sources side by side** — ECMWF and DWD ICON models via Open-Meteo — so you can compare forecasts at a glance. Weather conditions are mapped from WMO codes to human-readable descriptions and terminal-compatible icons. A last-refresh timestamp is shown in the header after loading.
+All views show **dual weather sources side by side** — ECMWF and DWD ICON models via Open-Meteo — so you can compare forecasts at a glance. Weather conditions are mapped from WMO codes to human-readable descriptions and terminal-compatible icons. The header shows a last-refresh timestamp reflecting when the displayed data was actually fetched (read from the cache file's mtime), not when the location was opened.
+
+### Caching & Background Refresh
+
+Weather data is cached on disk in `~/.weathercli/cache/` (one file per API URL).
+
+- **Selecting a location** loads instantly from the cache and never hits the network as long as the cached data is younger than 6 hours.
+- **`r` reload** always forces a fresh network fetch and rewrites the cache.
+- **Stale or missing cache** (older than 6 hours, or no entry yet) triggers a network fetch on selection.
+- **Background refresh thread**: on startup, weathercli pre-fetches every saved location in the background, then refreshes them every 6 hours. This means most location switches are instant after the app has been running for a few seconds.
+- **Offline fallback**: if a live request fails (network down, API outage), the cached copy — even if stale — is returned so the app keeps working.
 
 ### User Interface
 
@@ -57,7 +68,7 @@ All views show **dual weather sources side by side** — ECMWF and DWD ICON mode
 - **Auto-focus**: Selecting a location and loading its forecast automatically switches focus to the right pane.
 - **Progress bar**: Loading progress is shown in the footer with a visual bar and percentage during weather data fetching.
 - **Non-blocking AI**: Weather data is displayed immediately; AI summaries load in the background via a separate thread. The footer shows "Loading AI summary..." while the request is in progress.
-- **Refresh**: Press `r` to re-fetch weather data for the current location. A "Refreshed" confirmation appears in the footer for 3 seconds, then reverts to the normal hint bar.
+- **Refresh**: Press `r` to force a fresh network fetch for the current location (bypasses the cache). A "Refreshed" confirmation appears in the footer for 3 seconds, then reverts to the normal hint bar.
 - **Info overlay**: Press `?` to see data source information and keyboard reference.
 - **Framed layout**: Header and footer are framed with horizontal border lines for a clean, structured look.
 - **Quit confirmation**: Pressing `q` shows "Quit? (y/n)" in the footer bar.

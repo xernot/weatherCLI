@@ -19,6 +19,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <time.h>
 #include <unistd.h>
 
 static pthread_t g_refresh_thread;
@@ -54,6 +55,34 @@ int cache_path_for_url(const char *url, char *buf, size_t bufsize) {
   }
   snprintf(buf, bufsize, "%s/%016lx.json", dir, fnv1a_hash(url));
   return 0;
+}
+
+long cache_age_seconds(const char *url) {
+  char path[768];
+  if (cache_path_for_url(url, path, sizeof(path)) != 0) {
+    return -1;
+  }
+  struct stat st;
+  if (stat(path, &st) != 0) {
+    return -1;
+  }
+  time_t now = time(NULL);
+  if (now < st.st_mtime) {
+    return 0;
+  }
+  return (long)(now - st.st_mtime);
+}
+
+long cache_mtime(const char *url) {
+  char path[768];
+  if (cache_path_for_url(url, path, sizeof(path)) != 0) {
+    return 0;
+  }
+  struct stat st;
+  if (stat(path, &st) != 0) {
+    return 0;
+  }
+  return (long)st.st_mtime;
 }
 
 int cache_write(const char *url, const char *data, size_t size) {
@@ -108,10 +137,10 @@ static void refresh_one_location(const Location *loc) {
   Forecast f = {0};
   TodayDetail today = {0};
   TodayDetail tomorrow = {0};
-  weather_fetch(loc->latitude, loc->longitude, FORECAST_9DAY, &f);
-  weather_fetch_dwd(loc->latitude, loc->longitude, FORECAST_9DAY, &f);
-  weather_fetch_hourly(loc->latitude, loc->longitude, &today, &tomorrow);
-  weather_fetch_hourly_dwd(loc->latitude, loc->longitude, &today, &tomorrow);
+  weather_fetch(loc->latitude, loc->longitude, FORECAST_9DAY, &f, 1);
+  weather_fetch_dwd(loc->latitude, loc->longitude, FORECAST_9DAY, &f, 1);
+  weather_fetch_hourly(loc->latitude, loc->longitude, &today, &tomorrow, 1);
+  weather_fetch_hourly_dwd(loc->latitude, loc->longitude, &today, &tomorrow, 1);
 }
 
 static void refresh_all_locations(void) {

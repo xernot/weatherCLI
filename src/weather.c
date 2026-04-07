@@ -27,7 +27,16 @@
 
 /* Try a live HTTP GET; on success cache the body, on failure fall back
  * to a previously cached response for the same URL. */
-static int http_get_with_cache(const char *url, HttpBuffer *response) {
+static int http_get_with_cache(const char *url, HttpBuffer *response,
+                               int force) {
+  if (!force) {
+    long age = cache_age_seconds(url);
+    if (age >= 0 && age < CACHE_MAX_AGE_SECONDS) {
+      if (cache_read(url, response) == 0) {
+        return 0;
+      }
+    }
+  }
   if (http_get(url, response) == 0 && response->size > 0 &&
       response->data[0] == '{') {
     cache_write(url, response->data, response->size);
@@ -95,14 +104,15 @@ static int parse_day(cJSON *daily, int index, DayWeather *day) {
 }
 
 static int fetch_forecast(const char *base_url, double latitude,
-                          double longitude, int num_days, Forecast *forecast) {
+                          double longitude, int num_days, Forecast *forecast,
+                          int force) {
   char url[1024];
   build_weather_url(url, sizeof(url), base_url, latitude, longitude, num_days);
 
   HttpBuffer response;
   http_buffer_init(&response);
 
-  if (http_get_with_cache(url, &response) != 0) {
+  if (http_get_with_cache(url, &response, force) != 0) {
     http_buffer_free(&response);
     return -1;
   }
@@ -287,7 +297,7 @@ static int parse_hourly_for_day(cJSON *hourly, TodayDetail *detail,
 
 static int fetch_and_parse_hourly(const char *base_url, double latitude,
                                   double longitude, TodayDetail *today,
-                                  TodayDetail *tomorrow) {
+                                  TodayDetail *tomorrow, int force) {
   char url[1024];
   build_hourly_url(url, sizeof(url), base_url, latitude, longitude,
                    HOURLY_FORECAST_DAYS);
@@ -295,7 +305,7 @@ static int fetch_and_parse_hourly(const char *base_url, double latitude,
   HttpBuffer response;
   http_buffer_init(&response);
 
-  if (http_get_with_cache(url, &response) != 0) {
+  if (http_get_with_cache(url, &response, force) != 0) {
     http_buffer_free(&response);
     return -1;
   }
@@ -330,27 +340,42 @@ static int fetch_and_parse_hourly(const char *base_url, double latitude,
 }
 
 int weather_fetch(double latitude, double longitude, int num_days,
-                  Forecast *forecast) {
+                  Forecast *forecast, int force) {
   return fetch_forecast(WEATHER_API_URL, latitude, longitude, num_days,
-                        forecast);
+                        forecast, force);
 }
 
 int weather_fetch_dwd(double latitude, double longitude, int num_days,
-                      Forecast *forecast) {
+                      Forecast *forecast, int force) {
   return fetch_forecast(DWD_ICON_API_URL, latitude, longitude, num_days,
-                        forecast);
+                        forecast, force);
 }
 
 int weather_fetch_hourly(double latitude, double longitude, TodayDetail *today,
-                         TodayDetail *tomorrow) {
+                         TodayDetail *tomorrow, int force) {
   return fetch_and_parse_hourly(WEATHER_API_URL, latitude, longitude, today,
-                                tomorrow);
+                                tomorrow, force);
 }
 
 int weather_fetch_hourly_dwd(double latitude, double longitude,
-                             TodayDetail *today, TodayDetail *tomorrow) {
+                             TodayDetail *today, TodayDetail *tomorrow,
+                             int force) {
   return fetch_and_parse_hourly(DWD_ICON_API_URL, latitude, longitude, today,
-                                tomorrow);
+                                tomorrow, force);
+}
+
+int weather_has_cache(double latitude, double longitude) {
+  char url[1024];
+  build_weather_url(url, sizeof(url), WEATHER_API_URL, latitude, longitude,
+                    FORECAST_9DAY);
+  return cache_age_seconds(url) >= 0 ? 1 : 0;
+}
+
+long weather_cache_mtime(double latitude, double longitude) {
+  char url[1024];
+  build_weather_url(url, sizeof(url), WEATHER_API_URL, latitude, longitude,
+                    FORECAST_9DAY);
+  return cache_mtime(url);
 }
 
 const char *weather_code_to_string(int code) {

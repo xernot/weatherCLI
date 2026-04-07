@@ -20,6 +20,14 @@
  * Returns 0 on success, -1 on error. */
 int cache_path_for_url(const char *url, char *buf, size_t bufsize);
 
+/* Return age of the cached entry for the given URL in seconds, or -1 if no
+ * cache entry exists. */
+long cache_age_seconds(const char *url);
+
+/* Return the on-disk mtime of the cached entry for the given URL, or 0 if
+ * no cache entry exists. */
+long cache_mtime(const char *url);
+
 /* Persist a raw HTTP response body to the cache, keyed by URL.
  * Returns 0 on success, -1 on error. */
 int cache_write(const char *url, const char *data, size_t size);

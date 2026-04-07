@@ -64,22 +64,31 @@ typedef struct {
 /* Fetch ECMWF forecast for given coordinates. Returns 0 on success, -1 on
  * error. */
 int weather_fetch(double latitude, double longitude, int num_days,
-                  Forecast *forecast);
+                  Forecast *forecast, int force);
 
 /* Fetch DWD ICON forecast for given coordinates. Returns 0 on success, -1 on
  * error. */
 int weather_fetch_dwd(double latitude, double longitude, int num_days,
-                      Forecast *forecast);
+                      Forecast *forecast, int force);
 
 /* Fetch ECMWF hourly data for today and tomorrow, aggregate into sections.
    Returns 0 on success, -1 on error. */
 int weather_fetch_hourly(double latitude, double longitude, TodayDetail *today,
-                         TodayDetail *tomorrow);
+                         TodayDetail *tomorrow, int force);
 
 /* Fetch DWD ICON hourly data for today and tomorrow, aggregate into sections.
    Returns 0 on success, -1 on error. */
 int weather_fetch_hourly_dwd(double latitude, double longitude,
-                             TodayDetail *today, TodayDetail *tomorrow);
+                             TodayDetail *today, TodayDetail *tomorrow,
+                             int force);
+
+/* Return 1 if a fresh-or-stale cached daily forecast exists for the given
+ * coordinates, 0 otherwise. */
+int weather_has_cache(double latitude, double longitude);
+
+/* Return the mtime of the cached ECMWF daily forecast for the given
+ * coordinates, or 0 if no cache entry exists. */
+long weather_cache_mtime(double latitude, double longitude);
 
 /* Get a human-readable weather condition string from a WMO code. */
 const char *weather_code_to_string(int code);

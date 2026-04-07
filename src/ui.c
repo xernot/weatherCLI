@@ -171,8 +171,12 @@ static void draw_location_item(int y, int x, int width, const Location *loc,
     attron(COLOR_PAIR(COLOR_PAIR_SELECTED));
   }
 
+  const char *mark = weather_has_cache(loc->latitude, loc->longitude)
+                         ? CACHED_LOCATION_MARK
+                         : UNCACHED_LOCATION_MARK;
+
   char line[128];
-  snprintf(line, sizeof(line), " %s %s", loc->name, loc->country);
+  snprintf(line, sizeof(line), " %s %s %s", mark, loc->name, loc->country);
 
   mvprintw(y, x, "%-*.*s", width - 1, width - 1, line);
 
@@ -833,7 +837,7 @@ void ui_check_async_gpt(AppState *state) {
   ui_set_status(state, "");
 }
 
-static void fetch_forecast_for_selected(AppState *state) {
+static void fetch_forecast_for_selected(AppState *state, int force) {
   LocationList *list = get_visible_list(state);
   if (state->cursor_index < 0 || state->cursor_index >= list->count)
     return;
@@ -848,25 +852,26 @@ static void fetch_forecast_for_selected(AppState *state) {
   set_progress(state, 5, "Fetching ECMWF data...");
 
   int result = weather_fetch(loc->latitude, loc->longitude, FORECAST_9DAY,
-                             &state->forecast);
+                             &state->forecast, force);
 
   if (result == 0) {
     state->has_forecast = 1;
-    state->last_refresh = time(NULL);
+    long mtime = weather_cache_mtime(loc->latitude, loc->longitude);
+    state->last_refresh = mtime > 0 ? (time_t)mtime : time(NULL);
     state->right_scroll = 0;
 
     set_progress(state, 20, "Fetching ECMWF hourly...");
     weather_fetch_hourly(loc->latitude, loc->longitude, &state->today_detail,
-                         &state->tomorrow_detail);
+                         &state->tomorrow_detail, force);
 
     set_progress(state, 35, "Fetching DWD ICON data...");
     weather_fetch_dwd(loc->latitude, loc->longitude, FORECAST_9DAY,
-                      &state->forecast_dwd);
+                      &state->forecast_dwd, force);
 
     set_progress(state, 50, "Fetching DWD ICON hourly...");
     weather_fetch_hourly_dwd(loc->latitude, loc->longitude,
                              &state->today_detail_dwd,
-                             &state->tomorrow_detail_dwd);
+                             &state->tomorrow_detail_dwd, force);
 
     set_progress(state, 100, "Done");
   } else {
@@ -940,7 +945,7 @@ static void handle_enter_key(AppState *state) {
     return;
   }
 
-  fetch_forecast_for_selected(state);
+  fetch_forecast_for_selected(state, 0);
 }
 
 static void handle_save_location(AppState *state) {
@@ -1170,8 +1175,8 @@ static int build_chat_context(AppState *state, char *context,
     set_progress(state, 20 + found * 15, msg);
 
     if (weather_fetch(state->saved.items[i].latitude,
-                      state->saved.items[i].longitude, FORECAST_9DAY,
-                      &f) == 0) {
+                      state->saved.items[i].longitude, FORECAST_9DAY, &f,
+                      0) == 0) {
       offset = gpt_format_forecast(&f, state->saved.items[i].name, context,
                                    context_size, offset);
       found++;
@@ -1358,7 +1363,7 @@ int ui_handle_input(AppState *state, int ch) {
   /* Refresh forecast from either pane */
   if (ch == KEY_RELOAD && state->has_forecast && !state->loading) {
     state->chat_has_response = 0;
-    fetch_forecast_for_selected(state);
+    fetch_forecast_for_selected(state, 1);
     return 0;
   }
 
