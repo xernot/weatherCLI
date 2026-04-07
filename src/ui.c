@@ -871,7 +871,7 @@ static void fetch_forecast_for_selected(AppState *state) {
     set_progress(state, 100, "Done");
   } else {
     state->has_forecast = 0;
-    ui_set_status(state, "Failed to fetch forecast");
+    ui_set_status(state, "Weather service unavailable — try again later");
   }
 
   state->loading = 0;
@@ -887,8 +887,6 @@ static void fetch_forecast_for_selected(AppState *state) {
 
     /* Launch GPT summary in background — forecast displays immediately */
     launch_async_gpt(state);
-  } else {
-    ui_set_status(state, "");
   }
 }
 

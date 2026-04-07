@@ -160,6 +160,12 @@
 /* Maximum number of saved locations */
 #define MAX_SAVED_LOCATIONS 50
 
+/* Directory for cached HTTP responses (relative to $HOME) */
+#define CACHE_DIR ".weathercli/cache"
+
+/* How often the background thread refreshes cached forecasts (seconds) */
+#define CACHE_REFRESH_INTERVAL_SECONDS (4 * 3600)
+
 /* Maximum length of a location name */
 #define MAX_LOCATION_NAME 128
 

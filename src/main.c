@@ -17,6 +17,7 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
+#include "cache.h"
 #include "secrets.h"
 #include "ui.h"
 
@@ -28,6 +29,7 @@ int main(void) {
   setlocale(LC_ALL, "");
   secrets_load();
   curl_global_init(CURL_GLOBAL_DEFAULT);
+  cache_refresh_start();
 
   AppState state = {0};
   ui_init(&state);
@@ -45,6 +47,7 @@ int main(void) {
   }
 
   ui_cleanup();
+  cache_refresh_stop();
   curl_global_cleanup();
 
   return 0;

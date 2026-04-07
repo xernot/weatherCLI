@@ -11,6 +11,7 @@ SOURCES = $(SRC_DIR)/main.c \
           $(SRC_DIR)/http.c \
           $(SRC_DIR)/location.c \
           $(SRC_DIR)/weather.c \
+          $(SRC_DIR)/cache.c \
           $(SRC_DIR)/gpt.c \
           $(SRC_DIR)/secrets.c \
           $(SRC_DIR)/activity.c \

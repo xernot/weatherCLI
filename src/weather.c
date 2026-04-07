@@ -19,10 +19,28 @@
 
 #include "weather.h"
 #include "../vendor/cJSON.h"
+#include "cache.h"
 #include "http.h"
 
 #include <stdio.h>
 #include <string.h>
+
+/* Try a live HTTP GET; on success cache the body, on failure fall back
+ * to a previously cached response for the same URL. */
+static int http_get_with_cache(const char *url, HttpBuffer *response) {
+  if (http_get(url, response) == 0 && response->size > 0 &&
+      response->data[0] == '{') {
+    cache_write(url, response->data, response->size);
+    return 0;
+  }
+  /* Live request failed or returned a non-JSON body (e.g. 502 HTML).
+   * Reset the buffer and try the cache. */
+  response->size = 0;
+  if (response->data) {
+    response->data[0] = '\0';
+  }
+  return cache_read(url, response);
+}
 
 static void build_weather_url(char *url, size_t url_size, const char *base_url,
                               double lat, double lon, int num_days) {
@@ -84,7 +102,7 @@ static int fetch_forecast(const char *base_url, double latitude,
   HttpBuffer response;
   http_buffer_init(&response);
 
-  if (http_get(url, &response) != 0) {
+  if (http_get_with_cache(url, &response) != 0) {
     http_buffer_free(&response);
     return -1;
   }
@@ -277,7 +295,7 @@ static int fetch_and_parse_hourly(const char *base_url, double latitude,
   HttpBuffer response;
   http_buffer_init(&response);
 
-  if (http_get(url, &response) != 0) {
+  if (http_get_with_cache(url, &response) != 0) {
     http_buffer_free(&response);
     return -1;
   }
