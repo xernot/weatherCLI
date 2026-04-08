@@ -54,10 +54,17 @@
 /* Environment variable name for OpenAI API key */
 #define OPENAI_API_KEY_ENV "OPENAI_API_KEY"
 
+/* User-facing GPT error messages (shown in summary/chat output) */
+#define GPT_ERR_INVALID_JSON "[Invalid JSON from API]"
+#define GPT_ERR_API_ERROR_FMT "[API error: %s]"
+#define GPT_ERR_UNEXPECTED_FORMAT "[Unexpected API response format]"
+#define GPT_ERR_NO_KEY_FMT "[Set %s to enable AI]"
+#define GPT_ERR_REQUEST_FAILED "[Failed to reach GPT API]"
+
 /* --- Terminal --- */
 
 /* Application version string */
-#define APP_VERSION "weathercli v0.1"
+#define APP_VERSION "weathercli v0.2"
 
 /* Footer hint bar text */
 #define FOOTER_HINT_TEXT                                                       \
@@ -153,6 +160,18 @@
 /* Maximum length of a chat response */
 #define CHAT_RESPONSE_MAX 4096
 
+/* Maximum length of the multi-location chat context buffer */
+#define CHAT_CONTEXT_MAX 4096
+
+/* Max saved locations matched and included in a single chat context */
+#define CHAT_MAX_MATCHED_LOCATIONS 5
+
+/* Buffer length for short status/loading messages */
+#define LOADING_MSG_MAX 128
+
+/* Buffer length for the formatted refresh-time string */
+#define TIME_BUF_MAX 32
+
 /* --- Storage --- */
 
 /* Path to saved locations file (relative to $HOME) */
@@ -168,11 +187,11 @@
 #define CACHE_DIR ".weathercli/cache"
 
 /* How often the background thread refreshes cached forecasts (seconds) */
-#define CACHE_REFRESH_INTERVAL_SECONDS (6 * 3600)
+#define CACHE_REFRESH_INTERVAL_SECONDS (2 * 3600)
 
 /* Maximum age of a cached response before it is considered stale and a
  * fresh network fetch is required. */
-#define CACHE_MAX_AGE_SECONDS (6 * 3600)
+#define CACHE_MAX_AGE_SECONDS (2 * 3600)
 
 /* Maximum length of a location name */
 #define MAX_LOCATION_NAME 128
@@ -217,6 +236,34 @@
 
 /* Maximum HTTP response buffer size in bytes (1 MB) */
 #define HTTP_MAX_RESPONSE_SIZE (1024 * 1024)
+
+/* Initial HTTP response buffer capacity in bytes (grows as needed) */
+#define HTTP_BUFFER_INIT_SIZE 4096
+
+/* Maximum length of an HTTP Authorization header value */
+#define GPT_AUTH_HEADER_MAX 256
+
+/* Maximum length of a GPT summarization prompt (forecast + instructions) */
+#define GPT_PROMPT_MAX 4096
+
+/* Maximum length of a GPT chat prompt (multi-location context + question) */
+#define GPT_CHAT_PROMPT_MAX 8192
+
+/* Maximum length of a URL-encoded geocoding query */
+#define URL_ENCODE_MAX 256
+
+/* Maximum length of a constructed API request URL */
+#define API_URL_MAX 512
+
+/* Maximum length of a constructed Open-Meteo forecast URL (long query string)
+ */
+#define WEATHER_URL_MAX 1024
+
+/* Length of a YYYY-MM-DD date string buffer (incl. NUL) */
+#define DATE_STR_MAX 16
+
+/* Maximum length of a filesystem path buffer */
+#define FILEPATH_MAX_LEN 512
 
 /* --- Key Bindings --- */
 

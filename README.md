@@ -20,7 +20,7 @@ A fast, AI-driven, terminal-based weather forecast application written in C. Fea
                           │  A pleasant spring day with clear
                           │  skies and mild temperatures...
 ────────────────────────────────────────────────────────────────
- S-Tab:pane  a:activity  c:chat  r:refresh           weathercli v0.1
+ S-Tab:pane  a:activity  c:chat  r:refresh           weathercli v0.2
 ────────────────────────────────────────────────────────────────
 ```
 
@@ -53,10 +53,11 @@ All views show **dual weather sources side by side** — ECMWF and DWD ICON mode
 
 Weather data is cached on disk in `~/.weathercli/cache/` (one file per API URL).
 
-- **Selecting a location** loads instantly from the cache and never hits the network as long as the cached data is younger than 6 hours.
+- **Selecting a location** loads instantly from the cache and never hits the network as long as the cached data is younger than 2 hours.
 - **`r` reload** always forces a fresh network fetch and rewrites the cache.
-- **Stale or missing cache** (older than 6 hours, or no entry yet) triggers a network fetch on selection.
-- **Background refresh thread**: on startup, weathercli pre-fetches every saved location in the background, then refreshes them every 6 hours. This means most location switches are instant after the app has been running for a few seconds.
+- **Stale or missing cache** (older than 2 hours, or no entry yet) triggers a network fetch on selection.
+- **Background refresh thread**: on startup, weathercli pre-fetches every saved location in the background, then refreshes them every 2 hours. This means most location switches are instant after the app has been running for a few seconds.
+- **Date rollover**: at midnight (local time), the displayed forecast is automatically force-refreshed so the "Today" tab always reflects the new calendar day.
 - **Offline fallback**: if a live request fails (network down, API outage), the cached copy — even if stale — is returned so the app keeps working.
 
 ### User Interface
@@ -73,7 +74,7 @@ Weather data is cached on disk in `~/.weathercli/cache/` (one file per API URL).
 - **Framed layout**: Header and footer are framed with horizontal border lines for a clean, structured look.
 - **Quit confirmation**: Pressing `q` shows "Quit? (y/n)" in the footer bar.
 - **Terminal title**: Sets the terminal window title to "WeatherCLI".
-- **Version display**: `weathercli v0.1` is shown on the right side of the footer.
+- **Version display**: `weathercli v0.2` is shown on the right side of the footer.
 - **Responsive**: Adapts to terminal resize events.
 
 ## AI Features
@@ -241,7 +242,7 @@ weathercli/
   Makefile              Build configuration
   src/
     main.c              Entry point, event loop
-    ui.c / ui.h         ncurses rendering, input handling, AppState
+    ui.c / ui.h         ncurses rendering, input handling, app_state_t
     location.c / .h     Geocoding search (Open-Meteo + Nominatim fallback),
                         location CRUD, storage, alphabetical sorting
     weather.c / .h      Open-Meteo ECMWF + DWD ICON forecast APIs (daily + hourly),

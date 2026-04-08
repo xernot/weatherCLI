@@ -102,7 +102,7 @@ int cache_write(const char *url, const char *data, size_t size) {
   return (written == size) ? 0 : -1;
 }
 
-int cache_read(const char *url, HttpBuffer *response) {
+int cache_read(const char *url, http_buffer_t *response) {
   char path[768];
   if (cache_path_for_url(url, path, sizeof(path)) != 0) {
     return -1;
@@ -133,10 +133,10 @@ int cache_read(const char *url, HttpBuffer *response) {
   return 0;
 }
 
-static void refresh_one_location(const Location *loc) {
-  Forecast f = {0};
-  TodayDetail today = {0};
-  TodayDetail tomorrow = {0};
+static void refresh_one_location(const location_t *loc) {
+  forecast_t f = {0};
+  today_detail_t today = {0};
+  today_detail_t tomorrow = {0};
   weather_fetch(loc->latitude, loc->longitude, FORECAST_9DAY, &f, 1);
   weather_fetch_dwd(loc->latitude, loc->longitude, FORECAST_9DAY, &f, 1);
   weather_fetch_hourly(loc->latitude, loc->longitude, &today, &tomorrow, 1);
@@ -144,7 +144,7 @@ static void refresh_one_location(const Location *loc) {
 }
 
 static void refresh_all_locations(void) {
-  LocationList list = {0};
+  location_list_t list = {0};
   if (location_load(&list) != 0) {
     return;
   }

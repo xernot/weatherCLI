@@ -29,7 +29,7 @@
 
 int gpt_is_available(void) { return secrets_get(OPENAI_API_KEY_ENV) != NULL; }
 
-static void append_weather_data(const Forecast *forecast, int day_start,
+static void append_weather_data(const forecast_t *forecast, int day_start,
                                 int day_end, char *buf, size_t buf_size,
                                 int offset) {
   int end = day_end;
@@ -37,7 +37,7 @@ static void append_weather_data(const Forecast *forecast, int day_start,
     end = forecast->num_days;
 
   for (int i = day_start; i < end && offset < (int)buf_size - 128; i++) {
-    const DayWeather *d = &forecast->days[i];
+    const day_weather_t *d = &forecast->days[i];
     offset +=
         snprintf(buf + offset, buf_size - offset,
                  "%s: %s, High %.0fC, Low %.0fC, "
@@ -47,7 +47,7 @@ static void append_weather_data(const Forecast *forecast, int day_start,
   }
 }
 
-static void append_all_weather(const Forecast *forecast, char *buf,
+static void append_all_weather(const forecast_t *forecast, char *buf,
                                size_t buf_size, int offset) {
   append_weather_data(forecast, 0, forecast->num_days, buf, buf_size, offset);
 }
@@ -71,7 +71,7 @@ static int extract_gpt_response(const char *response_data, char *output,
                                 size_t output_size) {
   cJSON *json = cJSON_Parse(response_data);
   if (!json) {
-    snprintf(output, output_size, "[Invalid JSON from API]");
+    snprintf(output, output_size, GPT_ERR_INVALID_JSON);
     return -1;
   }
 
@@ -79,7 +79,7 @@ static int extract_gpt_response(const char *response_data, char *output,
   if (error) {
     cJSON *msg = cJSON_GetObjectItem(error, "message");
     if (msg && msg->valuestring) {
-      snprintf(output, output_size, "[API error: %s]", msg->valuestring);
+      snprintf(output, output_size, GPT_ERR_API_ERROR_FMT, msg->valuestring);
     }
     cJSON_Delete(json);
     return -1;
@@ -96,7 +96,7 @@ static int extract_gpt_response(const char *response_data, char *output,
     return 0;
   }
 
-  snprintf(output, output_size, "[Unexpected API response format]");
+  snprintf(output, output_size, GPT_ERR_UNEXPECTED_FORMAT);
   cJSON_Delete(json);
   return -1;
 }
@@ -104,7 +104,7 @@ static int extract_gpt_response(const char *response_data, char *output,
 static int send_to_gpt(const char *prompt, char *output, size_t output_size) {
   const char *api_key = secrets_get(OPENAI_API_KEY_ENV);
   if (!api_key) {
-    snprintf(output, output_size, "[Set %s to enable AI]", OPENAI_API_KEY_ENV);
+    snprintf(output, output_size, GPT_ERR_NO_KEY_FMT, OPENAI_API_KEY_ENV);
     return -1;
   }
 
@@ -112,10 +112,10 @@ static int send_to_gpt(const char *prompt, char *output, size_t output_size) {
   char *body_str = cJSON_PrintUnformatted(body);
   cJSON_Delete(body);
 
-  char auth[256];
+  char auth[GPT_AUTH_HEADER_MAX];
   snprintf(auth, sizeof(auth), "Authorization: Bearer %s", api_key);
 
-  HttpBuffer response;
+  http_buffer_t response;
   http_buffer_init(&response);
 
   int result = http_post_json(OPENAI_API_URL, body_str, auth, &response);
@@ -123,7 +123,7 @@ static int send_to_gpt(const char *prompt, char *output, size_t output_size) {
 
   if (result != 0) {
     http_buffer_free(&response);
-    snprintf(output, output_size, "[Failed to reach GPT API]");
+    snprintf(output, output_size, GPT_ERR_REQUEST_FAILED);
     return -1;
   }
 
@@ -132,10 +132,10 @@ static int send_to_gpt(const char *prompt, char *output, size_t output_size) {
   return result;
 }
 
-int gpt_summarize(const Forecast *forecast, const char *location_name,
+int gpt_summarize(const forecast_t *forecast, const char *location_name,
                   const char *activity_prompt, int day_start, int day_end,
                   char *summary, size_t summary_size) {
-  char prompt[4096];
+  char prompt[GPT_PROMPT_MAX];
   int offset =
       snprintf(prompt, sizeof(prompt),
                "Summarize this weather forecast for %s in 2-3 sentences. "
@@ -148,7 +148,7 @@ int gpt_summarize(const Forecast *forecast, const char *location_name,
   return send_to_gpt(prompt, summary, summary_size);
 }
 
-int gpt_format_forecast(const Forecast *forecast, const char *location_name,
+int gpt_format_forecast(const forecast_t *forecast, const char *location_name,
                         char *buf, size_t buf_size, int offset) {
   offset +=
       snprintf(buf + offset, buf_size - offset, "--- %s ---\n", location_name);
@@ -158,7 +158,7 @@ int gpt_format_forecast(const Forecast *forecast, const char *location_name,
 
 int gpt_chat(const char *weather_context, const char *question, char *response,
              size_t response_size) {
-  char prompt[8192];
+  char prompt[GPT_CHAT_PROMPT_MAX];
   int offset =
       snprintf(prompt, sizeof(prompt),
                "You are a weather assistant. Here is forecast data for "

@@ -27,7 +27,7 @@
 
 /* Try a live HTTP GET; on success cache the body, on failure fall back
  * to a previously cached response for the same URL. */
-static int http_get_with_cache(const char *url, HttpBuffer *response,
+static int http_get_with_cache(const char *url, http_buffer_t *response,
                                int force) {
   if (!force) {
     long age = cache_age_seconds(url);
@@ -62,7 +62,7 @@ static void build_weather_url(char *url, size_t url_size, const char *base_url,
            base_url, lat, lon, num_days);
 }
 
-static int parse_day(cJSON *daily, int index, DayWeather *day) {
+static int parse_day(cJSON *daily, int index, day_weather_t *day) {
   cJSON *dates = cJSON_GetObjectItem(daily, "time");
   cJSON *tmax = cJSON_GetObjectItem(daily, "temperature_2m_max");
   cJSON *tmin = cJSON_GetObjectItem(daily, "temperature_2m_min");
@@ -103,34 +103,12 @@ static int parse_day(cJSON *daily, int index, DayWeather *day) {
   return 0;
 }
 
-static int fetch_forecast(const char *base_url, double latitude,
-                          double longitude, int num_days, Forecast *forecast,
-                          int force) {
-  char url[1024];
-  build_weather_url(url, sizeof(url), base_url, latitude, longitude, num_days);
-
-  HttpBuffer response;
-  http_buffer_init(&response);
-
-  if (http_get_with_cache(url, &response, force) != 0) {
-    http_buffer_free(&response);
-    return -1;
-  }
-
-  cJSON *json = cJSON_Parse(response.data);
-  http_buffer_free(&response);
-  if (!json) {
-    return -1;
-  }
-
+static int parse_forecast_json(cJSON *json, forecast_t *forecast) {
   cJSON *daily = cJSON_GetObjectItem(json, "daily");
-  cJSON *tz = cJSON_GetObjectItem(json, "timezone");
-
-  if (!daily) {
-    cJSON_Delete(json);
+  if (!daily)
     return -1;
-  }
 
+  cJSON *tz = cJSON_GetObjectItem(json, "timezone");
   if (tz && tz->valuestring) {
     snprintf(forecast->timezone, sizeof(forecast->timezone), "%s",
              tz->valuestring);
@@ -138,17 +116,37 @@ static int fetch_forecast(const char *base_url, double latitude,
 
   cJSON *dates = cJSON_GetObjectItem(daily, "time");
   int n = cJSON_GetArraySize(dates);
-  if (n > FORECAST_9DAY) {
+  if (n > FORECAST_9DAY)
     n = FORECAST_9DAY;
-  }
 
   forecast->num_days = n;
   for (int i = 0; i < n; i++) {
     parse_day(daily, i, &forecast->days[i]);
   }
-
-  cJSON_Delete(json);
   return 0;
+}
+
+static int fetch_forecast(const char *base_url, double latitude,
+                          double longitude, int num_days, forecast_t *forecast,
+                          int force) {
+  char url[WEATHER_URL_MAX];
+  build_weather_url(url, sizeof(url), base_url, latitude, longitude, num_days);
+
+  http_buffer_t response;
+  http_buffer_init(&response);
+  if (http_get_with_cache(url, &response, force) != 0) {
+    http_buffer_free(&response);
+    return -1;
+  }
+
+  cJSON *json = cJSON_Parse(response.data);
+  http_buffer_free(&response);
+  if (!json)
+    return -1;
+
+  int result = parse_forecast_json(json, forecast);
+  cJSON_Delete(json);
+  return result;
 }
 
 static void build_hourly_url(char *url, size_t url_size, const char *base_url,
@@ -161,7 +159,7 @@ static void build_hourly_url(char *url, size_t url_size, const char *base_url,
            base_url, lat, lon, days);
 }
 
-static void init_section(HourlySection *s, const char *label) {
+static void init_section(hourly_section_t *s, const char *label) {
   s->label = label;
   s->temp_max = -999;
   s->temp_min = 999;
@@ -172,7 +170,7 @@ static void init_section(HourlySection *s, const char *label) {
   s->valid = 0;
 }
 
-static void aggregate_hour(HourlySection *s, double temp, int wcode,
+static void aggregate_hour(hourly_section_t *s, double temp, int wcode,
                            double wind, double precip, int humid) {
   if (temp > s->temp_max)
     s->temp_max = temp;
@@ -187,7 +185,7 @@ static void aggregate_hour(HourlySection *s, double temp, int wcode,
   s->valid++;
 }
 
-static void finalize_section(HourlySection *s) {
+static void finalize_section(hourly_section_t *s) {
   if (s->valid > 0) {
     s->humidity /= s->valid;
   }
@@ -203,90 +201,100 @@ static int hour_to_section(int hour) {
   return 3;
 }
 
-static int parse_hourly_for_day(cJSON *hourly, TodayDetail *detail,
-                                int day_index) {
-  cJSON *times = cJSON_GetObjectItem(hourly, "time");
-  cJSON *temps = cJSON_GetObjectItem(hourly, "temperature_2m");
-  cJSON *codes = cJSON_GetObjectItem(hourly, "weathercode");
-  cJSON *winds = cJSON_GetObjectItem(hourly, "windspeed_10m");
-  cJSON *precs = cJSON_GetObjectItem(hourly, "precipitation");
-  cJSON *humids = cJSON_GetObjectItem(hourly, "relativehumidity_2m");
-
-  if (!times || !temps)
-    return -1;
-
-  /* Find the date string for the target day */
-  char target_date[16] = {0};
+/* Scan the hourly time array and write the date string of the Nth distinct
+ * day into out. Returns 0 on success, -1 if not found. */
+static int find_nth_date(cJSON *times, int day_index, char *out,
+                         size_t out_size) {
   int n = cJSON_GetArraySize(times);
   int dates_seen = -1;
-  char prev_date[16] = {0};
+  char prev_date[DATE_STR_MAX] = {0};
 
   for (int i = 0; i < n; i++) {
     cJSON *t = cJSON_GetArrayItem(times, i);
     if (!t || !t->valuestring)
       continue;
-    char cur_date[16];
+    char cur_date[DATE_STR_MAX];
     snprintf(cur_date, sizeof(cur_date), "%.10s", t->valuestring);
     if (strcmp(cur_date, prev_date) != 0) {
       dates_seen++;
       snprintf(prev_date, sizeof(prev_date), "%s", cur_date);
       if (dates_seen == day_index) {
-        snprintf(target_date, sizeof(target_date), "%s", cur_date);
-        break;
+        snprintf(out, out_size, "%s", cur_date);
+        return 0;
       }
     }
   }
+  return -1;
+}
 
-  if (target_date[0] == '\0')
+/* Extract a numeric value from a cJSON array at index i, defaulting to 0. */
+static double json_array_double(cJSON *arr, int i) {
+  cJSON *ci = cJSON_GetArrayItem(arr, i);
+  return ci ? ci->valuedouble : 0;
+}
+
+static int json_array_int(cJSON *arr, int i) {
+  cJSON *ci = cJSON_GetArrayItem(arr, i);
+  return ci ? ci->valueint : 0;
+}
+
+/* Bundles the per-metric arrays for a single hourly response. */
+typedef struct {
+  cJSON *times;
+  cJSON *temps;
+  cJSON *codes;
+  cJSON *winds;
+  cJSON *precs;
+  cJSON *humids;
+} hourly_arrays_t;
+
+/* Aggregate one matching hour entry into the appropriate section. */
+static void process_hour_entry(const hourly_arrays_t *a, int i,
+                               today_detail_t *detail) {
+  cJSON *t = cJSON_GetArrayItem(a->times, i);
+  const char *time_str = t->valuestring;
+  int hour = 0;
+  const char *th = strchr(time_str, 'T');
+  if (th)
+    hour = (th[1] - '0') * 10 + (th[2] - '0');
+
+  int sec = hour_to_section(hour);
+  double temp = json_array_double(a->temps, i);
+  int wcode = json_array_int(a->codes, i);
+  double wind = json_array_double(a->winds, i);
+  double precip = json_array_double(a->precs, i);
+  int humid = (int)json_array_double(a->humids, i);
+
+  aggregate_hour(&detail->sections[sec], temp, wcode, wind, precip, humid);
+}
+
+static int parse_hourly_for_day(cJSON *hourly, today_detail_t *detail,
+                                int day_index) {
+  hourly_arrays_t a = {
+      .times = cJSON_GetObjectItem(hourly, "time"),
+      .temps = cJSON_GetObjectItem(hourly, "temperature_2m"),
+      .codes = cJSON_GetObjectItem(hourly, "weathercode"),
+      .winds = cJSON_GetObjectItem(hourly, "windspeed_10m"),
+      .precs = cJSON_GetObjectItem(hourly, "precipitation"),
+      .humids = cJSON_GetObjectItem(hourly, "relativehumidity_2m"),
+  };
+  if (!a.times || !a.temps)
+    return -1;
+
+  char target_date[DATE_STR_MAX] = {0};
+  if (find_nth_date(a.times, day_index, target_date, sizeof(target_date)) != 0)
     return -1;
 
   snprintf(detail->date, sizeof(detail->date), "%s", target_date);
 
+  int n = cJSON_GetArraySize(a.times);
   for (int i = 0; i < n; i++) {
-    cJSON *t = cJSON_GetArrayItem(times, i);
+    cJSON *t = cJSON_GetArrayItem(a.times, i);
     if (!t || !t->valuestring)
       continue;
-
-    const char *time_str = t->valuestring;
-
-    /* Skip entries not matching target date */
-    if (strncmp(time_str, target_date, 10) != 0)
+    if (strncmp(t->valuestring, target_date, 10) != 0)
       continue;
-
-    int hour = 0;
-    const char *th = strchr(time_str, 'T');
-    if (th)
-      hour = (th[1] - '0') * 10 + (th[2] - '0');
-
-    int sec = hour_to_section(hour);
-    cJSON *ci;
-
-    double temp = 0;
-    ci = cJSON_GetArrayItem(temps, i);
-    if (ci)
-      temp = ci->valuedouble;
-
-    int wcode = 0;
-    ci = cJSON_GetArrayItem(codes, i);
-    if (ci)
-      wcode = ci->valueint;
-
-    double wind = 0;
-    ci = cJSON_GetArrayItem(winds, i);
-    if (ci)
-      wind = ci->valuedouble;
-
-    double precip = 0;
-    ci = cJSON_GetArrayItem(precs, i);
-    if (ci)
-      precip = ci->valuedouble;
-
-    int humid = 0;
-    ci = cJSON_GetArrayItem(humids, i);
-    if (ci)
-      humid = (int)ci->valuedouble;
-
-    aggregate_hour(&detail->sections[sec], temp, wcode, wind, precip, humid);
+    process_hour_entry(&a, i, detail);
   }
 
   for (int i = 0; i < SECTION_COUNT; i++) {
@@ -296,13 +304,13 @@ static int parse_hourly_for_day(cJSON *hourly, TodayDetail *detail,
 }
 
 static int fetch_and_parse_hourly(const char *base_url, double latitude,
-                                  double longitude, TodayDetail *today,
-                                  TodayDetail *tomorrow, int force) {
-  char url[1024];
+                                  double longitude, today_detail_t *today,
+                                  today_detail_t *tomorrow, int force) {
+  char url[WEATHER_URL_MAX];
   build_hourly_url(url, sizeof(url), base_url, latitude, longitude,
                    HOURLY_FORECAST_DAYS);
 
-  HttpBuffer response;
+  http_buffer_t response;
   http_buffer_init(&response);
 
   if (http_get_with_cache(url, &response, force) != 0) {
@@ -340,39 +348,40 @@ static int fetch_and_parse_hourly(const char *base_url, double latitude,
 }
 
 int weather_fetch(double latitude, double longitude, int num_days,
-                  Forecast *forecast, int force) {
+                  forecast_t *forecast, int force) {
   return fetch_forecast(WEATHER_API_URL, latitude, longitude, num_days,
                         forecast, force);
 }
 
 int weather_fetch_dwd(double latitude, double longitude, int num_days,
-                      Forecast *forecast, int force) {
+                      forecast_t *forecast, int force) {
   return fetch_forecast(DWD_ICON_API_URL, latitude, longitude, num_days,
                         forecast, force);
 }
 
-int weather_fetch_hourly(double latitude, double longitude, TodayDetail *today,
-                         TodayDetail *tomorrow, int force) {
+int weather_fetch_hourly(double latitude, double longitude,
+                         today_detail_t *today, today_detail_t *tomorrow,
+                         int force) {
   return fetch_and_parse_hourly(WEATHER_API_URL, latitude, longitude, today,
                                 tomorrow, force);
 }
 
 int weather_fetch_hourly_dwd(double latitude, double longitude,
-                             TodayDetail *today, TodayDetail *tomorrow,
+                             today_detail_t *today, today_detail_t *tomorrow,
                              int force) {
   return fetch_and_parse_hourly(DWD_ICON_API_URL, latitude, longitude, today,
                                 tomorrow, force);
 }
 
 int weather_has_cache(double latitude, double longitude) {
-  char url[1024];
+  char url[WEATHER_URL_MAX];
   build_weather_url(url, sizeof(url), WEATHER_API_URL, latitude, longitude,
                     FORECAST_9DAY);
   return cache_age_seconds(url) >= 0 ? 1 : 0;
 }
 
 long weather_cache_mtime(double latitude, double longitude) {
-  char url[1024];
+  char url[WEATHER_URL_MAX];
   build_weather_url(url, sizeof(url), WEATHER_API_URL, latitude, longitude,
                     FORECAST_9DAY);
   return cache_mtime(url);

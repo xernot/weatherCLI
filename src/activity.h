@@ -26,17 +26,17 @@
 typedef struct {
   char label[MAX_ACTIVITY_LABEL];   /* Human-readable label for UI */
   char prompt[MAX_ACTIVITY_PROMPT]; /* GPT prompt context for this activity */
-} Activity;
+} activity_t;
 
 /* Runtime activity list, loaded from config or defaults */
 typedef struct {
-  Activity items[MAX_ACTIVITY_COUNT];
+  activity_t items[MAX_ACTIVITY_COUNT];
   int count;
-} ActivityList;
+} activity_list_t;
 
 /* Load activities from ~/.weathercli/activities.conf.
    Falls back to built-in defaults if file is missing.
    Returns 0 on success. */
-int activity_load(ActivityList *list);
+int activity_load(activity_list_t *list);
 
 #endif /* ACTIVITY_H */

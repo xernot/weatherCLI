@@ -29,13 +29,13 @@
 #include <time.h>
 
 /* Which pane is currently focused */
-typedef enum { PANE_LEFT, PANE_RIGHT } ActivePane;
+typedef enum { PANE_LEFT, PANE_RIGHT } active_pane_t;
 
 /* What the left pane is currently showing */
-typedef enum { LEFT_MODE_SAVED, LEFT_MODE_SEARCH } LeftMode;
+typedef enum { LEFT_MODE_SAVED, LEFT_MODE_SEARCH } left_mode_t;
 
 /* Right pane tabs */
-typedef enum { TAB_TODAY, TAB_TOMORROW, TAB_4DAY, TAB_9DAY } RightTab;
+typedef enum { TAB_TODAY, TAB_TOMORROW, TAB_4DAY, TAB_9DAY } right_tab_t;
 
 /* Full application UI state */
 typedef struct {
@@ -45,31 +45,32 @@ typedef struct {
   int left_width;
 
   /* Pane focus */
-  ActivePane active_pane;
+  active_pane_t active_pane;
 
   /* Left pane state */
-  LeftMode left_mode;
+  left_mode_t left_mode;
   char search_input[SEARCH_INPUT_MAX];
   int search_len;
   int cursor_index;  /* Selected item index in current list */
   int scroll_offset; /* Scroll position */
 
   /* Location data */
-  LocationList saved;          /* Saved locations */
-  LocationList search_results; /* API search results */
-  LocationList filtered;       /* Filtered saved locations */
+  location_list_t saved;          /* Saved locations */
+  location_list_t search_results; /* API search results */
+  location_list_t filtered;       /* Filtered saved locations */
 
   /* Right pane state — tabbed: Today, Tomorrow, 4-Day, 9-Day */
-  RightTab right_tab;
-  Forecast forecast;               /* ECMWF forecast */
-  Forecast forecast_dwd;           /* DWD ICON forecast */
-  TodayDetail today_detail;        /* ECMWF hourly sections for Today */
-  TodayDetail tomorrow_detail;     /* ECMWF hourly sections for Tomorrow */
-  TodayDetail today_detail_dwd;    /* DWD ICON hourly sections for Today */
-  TodayDetail tomorrow_detail_dwd; /* DWD ICON hourly sections for Tomorrow */
+  right_tab_t right_tab;
+  forecast_t forecast;             /* ECMWF forecast */
+  forecast_t forecast_dwd;         /* DWD ICON forecast */
+  today_detail_t today_detail;     /* ECMWF hourly sections for Today */
+  today_detail_t tomorrow_detail;  /* ECMWF hourly sections for Tomorrow */
+  today_detail_t today_detail_dwd; /* DWD ICON hourly sections for Today */
+  today_detail_t
+      tomorrow_detail_dwd; /* DWD ICON hourly sections for Tomorrow */
   char gpt_summaries[RIGHT_TAB_COUNT][2048]; /* Per-tab GPT summaries */
   int gpt_loaded[RIGHT_TAB_COUNT];           /* Whether summary is fetched */
-  ActivityList activities;                   /* Loaded activity modes */
+  activity_list_t activities;                /* Loaded activity modes */
   int activity_index;                        /* Current activity mode index */
 
   /* Chat mode */
@@ -93,37 +94,44 @@ typedef struct {
   time_t status_expire; /* When nonzero, clear status_msg after this time */
 
   /* Async GPT summary */
-  pthread_t gpt_thread;         /* Background thread handle */
-  int gpt_thread_active;        /* Whether a GPT thread is running */
-  int gpt_thread_tab;           /* Which tab the thread is fetching for */
-  char gpt_thread_result[2048]; /* Buffer for thread result */
-  int gpt_thread_done;          /* Set by thread when complete */
-  Forecast gpt_thread_forecast; /* Snapshot of forecast for thread */
+  pthread_t gpt_thread;           /* Background thread handle */
+  int gpt_thread_active;          /* Whether a GPT thread is running */
+  int gpt_thread_tab;             /* Which tab the thread is fetching for */
+  char gpt_thread_result[2048];   /* Buffer for thread result */
+  int gpt_thread_done;            /* Set by thread when complete */
+  forecast_t gpt_thread_forecast; /* Snapshot of forecast for thread */
   char gpt_thread_location[MAX_LOCATION_NAME]; /* Location name for thread */
   char gpt_thread_prompt[512];                 /* Activity prompt for thread */
 
+  /* Local day-of-year at last tick — used to detect midnight rollover */
+  int last_yday;
+
   /* Running flag */
   int running;
-} AppState;
+} app_state_t;
 
 /* Initialize ncurses and UI state */
-void ui_init(AppState *state);
+void ui_init(app_state_t *state);
 
 /* Clean up ncurses */
 void ui_cleanup(void);
 
 /* Main render function: draws both panes */
-void ui_render(const AppState *state);
+void ui_render(const app_state_t *state);
 
 /* Handle a single keypress, updating state. Returns 0 to continue, 1 to quit.
  */
-int ui_handle_input(AppState *state, int ch);
+int ui_handle_input(app_state_t *state, int ch);
 
 /* Check if async GPT thread has completed and collect result */
-void ui_check_async_gpt(AppState *state);
+void ui_check_async_gpt(app_state_t *state);
+
+/* Detect local-date rollover; on change, force-refresh the displayed forecast
+ * so "Today" reflects the new calendar day. */
+void ui_check_date_rollover(app_state_t *state);
 
 /* Set a status bar message */
-void ui_set_status(AppState *state, const char *fmt, ...);
+void ui_set_status(app_state_t *state, const char *fmt, ...);
 
 /* Calculate left pane width from terminal width */
 int ui_calc_left_width(int term_cols);

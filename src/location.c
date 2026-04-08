@@ -38,7 +38,7 @@ int location_get_filepath(char *buf, size_t bufsize) {
 }
 
 static int ensure_directory_exists(const char *filepath) {
-  char dir[512];
+  char dir[FILEPATH_MAX_LEN];
   snprintf(dir, sizeof(dir), "%s", filepath);
 
   char *last_slash = strrchr(dir, '/');
@@ -49,7 +49,7 @@ static int ensure_directory_exists(const char *filepath) {
   return 0;
 }
 
-static void parse_geocoding_result(cJSON *item, Location *loc) {
+static void parse_geocoding_result(cJSON *item, location_t *loc) {
   cJSON *name = cJSON_GetObjectItem(item, "name");
   cJSON *country = cJSON_GetObjectItem(item, "country_code");
   cJSON *lat = cJSON_GetObjectItem(item, "latitude");
@@ -87,12 +87,12 @@ static void url_encode(const char *src, char *dst, size_t dst_size) {
   dst[j] = '\0';
 }
 
-static int search_open_meteo(const char *encoded, LocationList *results) {
-  char url[512];
+static int search_open_meteo(const char *encoded, location_list_t *results) {
+  char url[API_URL_MAX];
   snprintf(url, sizeof(url), "%s?name=%s&count=%d&language=en&format=json",
            GEOCODING_API_URL, encoded, GEOCODING_MAX_RESULTS);
 
-  HttpBuffer response;
+  http_buffer_t response;
   http_buffer_init(&response);
 
   if (http_get(url, &response) != 0) {
@@ -119,7 +119,7 @@ static int search_open_meteo(const char *encoded, LocationList *results) {
   return results->count;
 }
 
-static void parse_nominatim_result(cJSON *item, Location *loc) {
+static void parse_nominatim_result(cJSON *item, location_t *loc) {
   cJSON *name = cJSON_GetObjectItem(item, "name");
   cJSON *lat = cJSON_GetObjectItem(item, "lat");
   cJSON *lon = cJSON_GetObjectItem(item, "lon");
@@ -146,12 +146,12 @@ static void parse_nominatim_result(cJSON *item, Location *loc) {
     loc->longitude = atof(lon->valuestring);
 }
 
-static int search_nominatim(const char *encoded, LocationList *results) {
-  char url[512];
+static int search_nominatim(const char *encoded, location_list_t *results) {
+  char url[API_URL_MAX];
   snprintf(url, sizeof(url), "%s?q=%s&format=json&limit=%d&accept-language=en",
            NOMINATIM_API_URL, encoded, GEOCODING_MAX_RESULTS);
 
-  HttpBuffer response;
+  http_buffer_t response;
   http_buffer_init(&response);
 
   if (http_get(url, &response) != 0) {
@@ -177,8 +177,8 @@ static int search_nominatim(const char *encoded, LocationList *results) {
   return results->count;
 }
 
-int location_search(const char *query, LocationList *results) {
-  char encoded[256];
+int location_search(const char *query, location_list_t *results) {
+  char encoded[URL_ENCODE_MAX];
   url_encode(query, encoded, sizeof(encoded));
   results->count = 0;
 
@@ -190,7 +190,7 @@ int location_search(const char *query, LocationList *results) {
   return search_nominatim(encoded, results);
 }
 
-static cJSON *location_to_json(const Location *loc) {
+static cJSON *location_to_json(const location_t *loc) {
   cJSON *obj = cJSON_CreateObject();
   cJSON_AddStringToObject(obj, "name", loc->name);
   cJSON_AddStringToObject(obj, "country", loc->country);
@@ -199,8 +199,8 @@ static cJSON *location_to_json(const Location *loc) {
   return obj;
 }
 
-int location_load(LocationList *list) {
-  char filepath[512];
+int location_load(location_list_t *list) {
+  char filepath[FILEPATH_MAX_LEN];
   if (location_get_filepath(filepath, sizeof(filepath)) != 0) {
     return -1;
   }
@@ -241,8 +241,8 @@ int location_load(LocationList *list) {
   return 0;
 }
 
-int location_save(const LocationList *list) {
-  char filepath[512];
+int location_save(const location_list_t *list) {
+  char filepath[FILEPATH_MAX_LEN];
   if (location_get_filepath(filepath, sizeof(filepath)) != 0) {
     return -1;
   }
@@ -271,18 +271,18 @@ int location_save(const LocationList *list) {
 }
 
 static int compare_locations(const void *a, const void *b) {
-  const Location *la = (const Location *)a;
-  const Location *lb = (const Location *)b;
+  const location_t *la = (const location_t *)a;
+  const location_t *lb = (const location_t *)b;
   return strcasecmp(la->name, lb->name);
 }
 
-void location_sort(LocationList *list) {
+void location_sort(location_list_t *list) {
   if (list->count > 1) {
-    qsort(list->items, list->count, sizeof(Location), compare_locations);
+    qsort(list->items, list->count, sizeof(location_t), compare_locations);
   }
 }
 
-int location_add(LocationList *list, const Location *loc) {
+int location_add(location_list_t *list, const location_t *loc) {
   if (list->count >= MAX_SAVED_LOCATIONS) {
     return -1;
   }
@@ -292,7 +292,7 @@ int location_add(LocationList *list, const Location *loc) {
   return 0;
 }
 
-int location_remove(LocationList *list, int index) {
+int location_remove(location_list_t *list, int index) {
   if (index < 0 || index >= list->count) {
     return -1;
   }
@@ -303,8 +303,8 @@ int location_remove(LocationList *list, int index) {
   return 0;
 }
 
-int location_filter(const LocationList *all, const char *query,
-                    LocationList *filtered) {
+int location_filter(const location_list_t *all, const char *query,
+                    location_list_t *filtered) {
   filtered->count = 0;
   for (int i = 0; i < all->count; i++) {
     if (strcasestr(all->items[i].name, query) != NULL) {

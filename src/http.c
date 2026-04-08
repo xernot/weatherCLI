@@ -24,14 +24,14 @@
 #include <stdlib.h>
 #include <string.h>
 
-void http_buffer_init(HttpBuffer *buf) {
-  buf->data = malloc(4096);
+void http_buffer_init(http_buffer_t *buf) {
+  buf->data = malloc(HTTP_BUFFER_INIT_SIZE);
   buf->data[0] = '\0';
   buf->size = 0;
-  buf->capacity = 4096;
+  buf->capacity = HTTP_BUFFER_INIT_SIZE;
 }
 
-void http_buffer_free(HttpBuffer *buf) {
+void http_buffer_free(http_buffer_t *buf) {
   free(buf->data);
   buf->data = NULL;
   buf->size = 0;
@@ -41,7 +41,7 @@ void http_buffer_free(HttpBuffer *buf) {
 static size_t write_callback(void *contents, size_t size, size_t nmemb,
                              void *userdata) {
   size_t total = size * nmemb;
-  HttpBuffer *buf = (HttpBuffer *)userdata;
+  http_buffer_t *buf = (http_buffer_t *)userdata;
 
   if (buf->size + total >= HTTP_MAX_RESPONSE_SIZE) {
     return 0;
@@ -59,7 +59,7 @@ static size_t write_callback(void *contents, size_t size, size_t nmemb,
   return total;
 }
 
-static int http_perform(CURL *curl, HttpBuffer *response) {
+static int http_perform(CURL *curl, http_buffer_t *response) {
   curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
   curl_easy_setopt(curl, CURLOPT_WRITEDATA, response);
   curl_easy_setopt(curl, CURLOPT_TIMEOUT, (long)HTTP_TIMEOUT_SECONDS);
@@ -72,7 +72,7 @@ static int http_perform(CURL *curl, HttpBuffer *response) {
   return (res == CURLE_OK) ? 0 : -1;
 }
 
-int http_get(const char *url, HttpBuffer *response) {
+int http_get(const char *url, http_buffer_t *response) {
   CURL *curl = curl_easy_init();
   if (!curl) {
     return -1;
@@ -83,7 +83,7 @@ int http_get(const char *url, HttpBuffer *response) {
 }
 
 int http_post_json(const char *url, const char *json_body,
-                   const char *auth_header, HttpBuffer *response) {
+                   const char *auth_header, http_buffer_t *response) {
   CURL *curl = curl_easy_init();
   if (!curl) {
     return -1;

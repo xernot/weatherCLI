@@ -32,9 +32,9 @@ long cache_mtime(const char *url);
  * Returns 0 on success, -1 on error. */
 int cache_write(const char *url, const char *data, size_t size);
 
-/* Load a previously cached response into the provided HttpBuffer.
+/* Load a previously cached response into the provided http_buffer_t.
  * Returns 0 on success, -1 if no cache entry exists. */
-int cache_read(const char *url, HttpBuffer *response);
+int cache_read(const char *url, http_buffer_t *response);
 
 /* Start the background refresh thread that pre-warms the cache for
  * every saved location every CACHE_REFRESH_INTERVAL_SECONDS. */

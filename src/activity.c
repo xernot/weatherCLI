@@ -23,7 +23,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-static void add_default_activities(ActivityList *list) {
+static void add_default_activities(activity_list_t *list) {
   list->count = 0;
 
   snprintf(list->items[0].label, MAX_ACTIVITY_LABEL, "%s",
@@ -67,7 +67,7 @@ static void trim_trailing(char *s) {
   }
 }
 
-static int parse_activities_file(FILE *f, ActivityList *list) {
+static int parse_activities_file(FILE *f, activity_list_t *list) {
   char line[512];
   list->count = 0;
 
@@ -92,7 +92,7 @@ static int parse_activities_file(FILE *f, ActivityList *list) {
     if (label_src[0] == '\0' || prompt_src[0] == '\0')
       continue;
 
-    Activity *act = &list->items[list->count];
+    activity_t *act = &list->items[list->count];
     size_t llen = strlen(label_src);
     size_t plen = strlen(prompt_src);
     if (llen >= MAX_ACTIVITY_LABEL)
@@ -109,7 +109,7 @@ static int parse_activities_file(FILE *f, ActivityList *list) {
   return (list->count > 0) ? 0 : -1;
 }
 
-int activity_load(ActivityList *list) {
+int activity_load(activity_list_t *list) {
   char filepath[512];
   if (get_filepath(filepath, sizeof(filepath)) != 0) {
     add_default_activities(list);

@@ -27,20 +27,20 @@ typedef struct {
   char *data;
   size_t size;
   size_t capacity;
-} HttpBuffer;
+} http_buffer_t;
 
 /* Initialize an HTTP buffer */
-void http_buffer_init(HttpBuffer *buf);
+void http_buffer_init(http_buffer_t *buf);
 
 /* Free an HTTP buffer */
-void http_buffer_free(HttpBuffer *buf);
+void http_buffer_free(http_buffer_t *buf);
 
 /* Perform an HTTP GET request. Returns 0 on success, -1 on failure. */
-int http_get(const char *url, HttpBuffer *response);
+int http_get(const char *url, http_buffer_t *response);
 
 /* Perform an HTTP POST request with JSON body. Returns 0 on success, -1 on
  * failure. */
 int http_post_json(const char *url, const char *json_body,
-                   const char *auth_header, HttpBuffer *response);
+                   const char *auth_header, http_buffer_t *response);
 
 #endif /* HTTP_H */

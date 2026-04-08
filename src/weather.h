@@ -32,14 +32,14 @@ typedef struct {
   double wind_speed_max; /* Maximum wind speed in km/h */
   int humidity;          /* Average relative humidity % */
   double uv_index;       /* Maximum UV index */
-} DayWeather;
+} day_weather_t;
 
-/* Forecast containing multiple days */
+/* forecast_t containing multiple days */
 typedef struct {
-  DayWeather days[FORECAST_9DAY];
+  day_weather_t days[FORECAST_9DAY];
   int num_days;
   char timezone[64];
-} Forecast;
+} forecast_t;
 
 /* Aggregated weather for a time-of-day section (e.g. morning, afternoon) */
 typedef struct {
@@ -51,35 +51,35 @@ typedef struct {
   int weather_code; /* Dominant (worst) WMO code */
   int humidity;     /* Average humidity % */
   int valid;        /* Whether this section has data */
-} HourlySection;
+} hourly_section_t;
 
 /* Today's detailed forecast broken into time-of-day sections */
 typedef struct {
-  HourlySection
+  hourly_section_t
       sections[SECTION_COUNT]; /* Morning, Afternoon, Evening, Night */
   char date[16];
   int valid;
-} TodayDetail;
+} today_detail_t;
 
 /* Fetch ECMWF forecast for given coordinates. Returns 0 on success, -1 on
  * error. */
 int weather_fetch(double latitude, double longitude, int num_days,
-                  Forecast *forecast, int force);
+                  forecast_t *forecast, int force);
 
 /* Fetch DWD ICON forecast for given coordinates. Returns 0 on success, -1 on
  * error. */
 int weather_fetch_dwd(double latitude, double longitude, int num_days,
-                      Forecast *forecast, int force);
+                      forecast_t *forecast, int force);
 
 /* Fetch ECMWF hourly data for today and tomorrow, aggregate into sections.
    Returns 0 on success, -1 on error. */
-int weather_fetch_hourly(double latitude, double longitude, TodayDetail *today,
-                         TodayDetail *tomorrow, int force);
+int weather_fetch_hourly(double latitude, double longitude, today_detail_t *today,
+                         today_detail_t *tomorrow, int force);
 
 /* Fetch DWD ICON hourly data for today and tomorrow, aggregate into sections.
    Returns 0 on success, -1 on error. */
 int weather_fetch_hourly_dwd(double latitude, double longitude,
-                             TodayDetail *today, TodayDetail *tomorrow,
+                             today_detail_t *today, today_detail_t *tomorrow,
                              int force);
 
 /* Return 1 if a fresh-or-stale cached daily forecast exists for the given

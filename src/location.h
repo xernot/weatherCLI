@@ -30,37 +30,37 @@ typedef struct {
   char country[MAX_COUNTRY_CODE];
   double latitude;
   double longitude;
-} Location;
+} location_t;
 
 /* List of locations (used for search results and saved locations) */
 typedef struct {
-  Location items[MAX_SAVED_LOCATIONS];
+  location_t items[MAX_SAVED_LOCATIONS];
   int count;
-} LocationList;
+} location_list_t;
 
 /* Search for locations by name via geocoding API. Returns number of results, -1
  * on error. */
-int location_search(const char *query, LocationList *results);
+int location_search(const char *query, location_list_t *results);
 
 /* Load saved locations from disk. Returns 0 on success, -1 on error. */
-int location_load(LocationList *list);
+int location_load(location_list_t *list);
 
 /* Save locations to disk. Returns 0 on success, -1 on error. */
-int location_save(const LocationList *list);
+int location_save(const location_list_t *list);
 
 /* Sort locations alphabetically by name. */
-void location_sort(LocationList *list);
+void location_sort(location_list_t *list);
 
 /* Add a location to the saved list. Returns 0 on success, -1 if full. */
-int location_add(LocationList *list, const Location *loc);
+int location_add(location_list_t *list, const location_t *loc);
 
 /* Remove a location from the list by index. Returns 0 on success, -1 on error.
  */
-int location_remove(LocationList *list, int index);
+int location_remove(location_list_t *list, int index);
 
 /* Search saved locations by name (case-insensitive substring match). */
-int location_filter(const LocationList *all, const char *query,
-                    LocationList *filtered);
+int location_filter(const location_list_t *all, const char *query,
+                    location_list_t *filtered);
 
 /* Get the storage file path. Returns 0 on success, -1 on error. */
 int location_get_filepath(char *buf, size_t bufsize);

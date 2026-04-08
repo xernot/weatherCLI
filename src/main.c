@@ -31,11 +31,12 @@ int main(void) {
   curl_global_init(CURL_GLOBAL_DEFAULT);
   cache_refresh_start();
 
-  AppState state = {0};
+  app_state_t state = {0};
   ui_init(&state);
 
   while (state.running) {
     ui_check_async_gpt(&state);
+    ui_check_date_rollover(&state);
     ui_render(&state);
     int ch = getch();
     ui_handle_input(&state, ch);
